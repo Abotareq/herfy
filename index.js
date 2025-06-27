@@ -1,0 +1,49 @@
+//*------------------------------------env config first------------------------------------*//
+import dotenv from "dotenv";
+dotenv.config();
+//2na 3amel el 7agat de bla4 7naka w 7d y2ol ai comments w kda
+//*------------------------------------importing modules------------------------------------*//
+import express from "express";
+import cors from "cors";
+import helmet from "helmet";
+import morgan from "morgan";
+import rateLimit from "express-rate-limit";
+
+import { connecToDb, closeDbConnection } from "./utils/dbConnecion.js";
+import errorHandler from "./middlewares/error-handler.js";
+
+//*------------------------------------app setup------------------------------------*//
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+//*------------------------------------middlewares------------------------------------*//
+app.use(helmet());
+app.use(cors());
+app.use(express.json());
+app.use(morgan("dev"));
+app.use(rateLimit({
+  windowMs: 15 * 60 * 1000, //
+  max: 100,
+  message: "Too many requests from this IP, please try again later."
+}));
+
+//*------------------------------------routes------------------------------------*/
+// Example:
+// import routes from "./routes/index.js";
+// app.use("/api", routes);
+
+//*------------------------------------error handler (last)------------------------------------*//
+app.use(errorHandler);
+
+//*------------------------------------db + server start------------------------------------*//
+connecToDb();
+app.listen(PORT, () => {
+  console.log(`🚀 Server is running on http://localhost:${PORT}`);
+});
+
+//*------------------------------------graceful shutdown------------------------------------*/
+process.on("SIGINT", async () => {
+  await closeDbConnection();
+  console.log("🔌 Server shutdown gracefully");
+  process.exit(0);
+});
