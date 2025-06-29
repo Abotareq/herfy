@@ -8,7 +8,8 @@
 
 
 
-const mongoose = require('mongoose');
+// const mongoose = require('mongoose');
+import mongoose from "mongoose";
 
 const reviewSchema = new mongoose.Schema({
   user: {
@@ -43,4 +44,5 @@ const reviewSchema = new mongoose.Schema({
 reviewSchema.index({ user: 1, entityId: 1, entityType: 1 }, { unique: true });
 
 const Review = mongoose.model('Review', reviewSchema);
-module.exports = Review;
+export default Review;
+// module.exports = Review;

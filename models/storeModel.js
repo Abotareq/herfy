@@ -15,8 +15,8 @@
 // }
 
 
-const mongoose = require('mongoose');
-const slugify = require('slugify');
+import mongoose from 'mongoose';
+import slugify from 'slugify';
 
 const storeSchema = new mongoose.Schema({
   owner: {
@@ -81,4 +81,4 @@ storeSchema.pre('save', function(next) {
 });
 
 const Store = mongoose.model('Store', storeSchema);
-module.exports = Store;
+export default Store;

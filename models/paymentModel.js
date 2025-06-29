@@ -11,7 +11,7 @@
 //   "updatedAt": "2025-06-29T12:35:10.123Z"
 // }
 
-const mongoose = require('mongoose');
+import mongoose from "mongoose";
 
 const paymentSchema = new mongoose.Schema({
   order: {
@@ -49,4 +49,4 @@ const paymentSchema = new mongoose.Schema({
 });
 
 const Payment = mongoose.model('Payment', paymentSchema);
-module.exports = Payment;
+export default Payment; 
