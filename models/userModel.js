@@ -1,7 +1,7 @@
 // {
 //   "name": "Osama Saad",
-//   "email": "osama@example.com",
-//   "password": "hashed_password",
+//   "email": "osama@gmail.com",
+//   "password": "123456",
 //   "phone": "01000000000",
 //   "role": "vendor",
 //   "addresses": [
