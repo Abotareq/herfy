@@ -17,7 +17,7 @@
 //   "coupon": "665d1b8fd5e1b2c5d9a66f99"
 // }
 
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const cartSchema = new mongoose.Schema({
   user: {
@@ -53,4 +53,4 @@ const cartSchema = new mongoose.Schema({
 });
 
 const Cart = mongoose.model('Cart', cartSchema);
-module.exports = Cart;
+export default Cart;

@@ -21,8 +21,8 @@
 
 
 
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
+import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
 
 // A sub-document for addresses
 // تفاصيل العنوان كتيرة شوية
@@ -83,4 +83,4 @@ userSchema.pre('save', async function(next) {
 });
 
 const User = mongoose.model('User', userSchema);
-module.exports = User;
+export default User;
