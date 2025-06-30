@@ -10,7 +10,6 @@ import morgan from "morgan";
 import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
 import authRoutes from "./auth/auth.routes.js";
-
 import { connecToDb, closeDbConnection } from "./utils/dbConnecion.js";
 import errorHandler from "./middlewares/error-handler.js";
 
@@ -37,7 +36,6 @@ app.use("/api/auth", authRoutes);
 // Example:
 // import routes from "./routes/index.js";
 // app.use("/api", routes);
-
 //*------------------------------------error handler (last)------------------------------------*//
 app.use(errorHandler);
 
