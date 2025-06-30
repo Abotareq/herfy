@@ -19,68 +19,99 @@
 //   "wishlist": []
 // }
 
-
-
-import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
+import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 
 // A sub-document for addresses
 // تفاصيل العنوان كتيرة شوية
 const addressSchema = new mongoose.Schema({
   buildingNo: { type: Number, required: true }, // 4
-  street: { type: String, required: true },  // Al Shohadaa 
-  nearestLandMark: { type: String, required: false },  //school
-  city: { type: String, required: true },   // Juhayna
-  governorate: { type: String, required: true },  // sohag
-  country: { type: String, required: true, default: 'Egypt' },
-  addressType: { type: String, required: true },   // (home -work)
-  isDefault: { type: Boolean, default: false },    //(to handle many addresses)
+  street: { type: String, required: true }, // Al Shohadaa
+  nearestLandMark: { type: String, required: false }, //school
+  city: { type: String, required: true }, // Juhayna
+  governorate: { type: String, required: true }, // sohag
+  country: { type: String, required: true, default: "Egypt" },
+  addressType: {
+    type: String,
+    enum: ["home", "work"],
+    required: true,
+  }, // (home -work)
+  isDefault: { type: Boolean, default: false }, //(to handle many addresses)
 });
 
-const userSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: [true, 'Name is required'],
-    trim: true,
+const userSchema = new mongoose.Schema(
+  {
+    userName: {
+      type: String,
+      required: [true, "User name is required"],
+      trim: true,
+      unique: true,
+    },
+    firstName: {
+      type: String,
+      required: [true, "S name is required"],
+      trim: true,
+    },
+    lastName: {
+      type: String,
+      required: [true, "First name is required"],
+      trim: true,
+    },
+    email: {
+      type: String,
+      required: [true, "Email is required"],
+      unique: true,
+      lowercase: true,
+      trim: true,
+      match: [/.+\@.+\..+/, "Please fill a valid email address"],
+    },
+    password: {
+      type: String,
+      required: [true, "Password is required"],
+      minlength: 6,
+    },
+    phone: {
+      type: String,
+      unique: true,
+      required: [true, "Phone number is required"],
+      trim: true,
+    },
+    role: {
+      type: String,
+      enum: ["customer", "vendor", "admin"],
+      default: "customer",
+    },
+    addresses: [addressSchema], // Array of address sub-documents
+    wishlist: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Product",
+      },
+    ],
   },
-  email: {
-    type: String,
-    required: [true, 'Email is required'],
-    unique: true,
-    lowercase: true,
-    trim: true,
-    match: [/.+\@.+\..+/, 'Please fill a valid email address'],
+  {
+    timestamps: true,
   },
-  password: {
-    type: String,
-    required: [true, 'Password is required'],
-    minlength: 6,
-  },
-  phone: {
-    type: String,
-    trim: true,
-  },
-  role: {
-    type: String,
-    enum: ['customer', 'vendor', 'admin'],
-    default: 'customer',
-  },
-  addresses: [addressSchema], // Array of address sub-documents
-  wishlist: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Product',
-  }],
-}, {
-  timestamps: true
-});
+  {
+    toJSON: {
+      transform(doc, ret, options) {
+        delete ret.password;
+        delete ret.__v; //mongoose adds __v by default for tracking
+        return ret;
+      },
+    },
+  }
+);
+/* userSchema.index({ email: 1 });
+userSchema.index({ phone: 1 }); */
 
 // Hash password before saving
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
   next();
 });
 
-const User = mongoose.model('User', userSchema);
+const User = mongoose.model("User", userSchema);
 export default User;
