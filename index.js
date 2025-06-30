@@ -8,6 +8,8 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import rateLimit from "express-rate-limit";
+import cookieParser from "cookie-parser";
+import authRoutes from "./auth/auth.routes.js";
 
 import { connecToDb, closeDbConnection } from "./utils/dbConnecion.js";
 import errorHandler from "./middlewares/error-handler.js";
@@ -20,14 +22,18 @@ const PORT = process.env.PORT || 3000;
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
 app.use(morgan("dev"));
-app.use(rateLimit({
-  windowMs: 15 * 60 * 1000, //
-  max: 100,
-  message: "Too many requests from this IP, please try again later."
-}));
+app.use(
+  rateLimit({
+    windowMs: 15 * 60 * 1000, //
+    max: 100,
+    message: "Too many requests from this IP, please try again later.",
+  })
+);
 
 //*------------------------------------routes------------------------------------*/
+app.use("/api/auth", authRoutes);
 // Example:
 // import routes from "./routes/index.js";
 // app.use("/api", routes);
