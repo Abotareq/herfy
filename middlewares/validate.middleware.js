@@ -1,6 +1,17 @@
 import StatusCodes from "../utils/statusCodes.js";
 import JSEND_STATUS from "../utils/httpStatusMessages.js";
 
+/**
+ * Middleware to validate request body against a Joi schema.
+ * If validation fails, responds with 400 Bad Request and error details.
+ *
+ * @param {import('joi').ObjectSchema} schema - Joi schema to validate against
+ * @returns {import('express').RequestHandler} Express middleware function
+ *
+ * @example
+ * router.post('/api/products', validate(createProductSchema), productController.createProduct);
+ */
+
 const validate = (schema) => {
     return (req, res, next) => {
         const { error } = schema.validate(req.body, { abortEarly: false });
