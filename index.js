@@ -9,9 +9,15 @@ import helmet from "helmet";
 import morgan from "morgan";
 import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
+
+// multer
+import path from "path";
+import { fileURLToPath } from "url";
+
 import authRoutes from "./auth/auth.routes.js";
 import { connecToDb, closeDbConnection } from "./utils/dbConnecion.js";
 import errorHandler from "./middlewares/error-handler.js";
+import productRoute from "./routes/product.route.js";
 
 //*------------------------------------app setup------------------------------------*//
 const app = express();
@@ -31,11 +37,18 @@ app.use(
   })
 );
 
+// For ES modules: define __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+app.use("/uploades", express.static(path.join(__dirname, "uploades")));
 //*------------------------------------routes------------------------------------*/
 app.use("/api/auth", authRoutes);
 // Example:
 // import routes from "./routes/index.js";
 // app.use("/api", routes);
+
+// product Route 
+app.use("/api/products",productRoute);
 //*------------------------------------error handler (last)------------------------------------*//
 app.use(errorHandler);
 
