@@ -7,32 +7,76 @@ import { createProductSchema, updateProductSchema } from "../validations/product
 const router = express.Router();
 
 /*
-  |  | Route                                          | Method | Purpose                            |
-| -- | ---------------------------------------------- | ------ | ---------------------------------- |
-| 1  | `/api/products`                                | POST   | Create Product                     |
-| 2  | `/api/products`                                | GET    | List Products (filters/pagination) |
-| 3  | `/api/products/search`                         | GET    | Search Products                    |
-| 4  | `/api/products/:productId`                     | GET    | Get single Product                 |
-| 5  | `/api/products/:productId`                     | PATCH  | Update Product                     |
-| 6  | `/api/products/:productId`                     | DELETE | Delete Product                     |
-| 7  | `/api/products/:productId/variants`            | POST   | Add Variant                        |
-| 8  | `/api/products/:productId/variants/:variantId` | PATCH  | Update Variant                     |
-| 9  | `/api/products/:productId/variants/:variantId` | DELETE | Delete Variant                     |
-| 10 | `/api/products/:productId/images`              | POST   | Add multiple images                |
+ | **Method** | **Endpoint**                                   | **Description**                                         | **Body / Params Example**                                                                                                                                                         | **Response**                              |
+| ---------- | ---------------------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| **GET**    | `/api/products`                                | Get all products (supports filters, pagination, search) | **Query params example:** `/api/products?page=1&limit=10&search=handmade&category=60c72b...`                                                                                      | **200 OK** with `{ total, products }`     |
+| **POST**   | `/api/products`                                | Create new product (with image upload)                  | **Form-Data:** `image: (file)`, `name: Handmade Soap`, `basePrice: 50`, `category: 60c72b...`, `description: Natural soap`<br>**Note:** Uses `upload.single("image")` middleware. | **201 Created** with product object       |
+| **GET**    | `/api/products/search`                         | Search products                                         | **Query params example:** `/api/products/search?query=soap`                                                                                                                       | **200 OK** with results array             |
+| **GET**    | `/api/products/:productId`                     | Get product by ID                                       | **URL param:** `productId = 60c72b...`                                                                                                                                            | **200 OK** with product object or **404** |
+| **PATCH**  | `/api/products/:productId`                     | Update product by ID                                    | `json { "name": "Updated Soap", "basePrice": 55 } `                                                                                                                               | **200 OK** with updated product object    |
+| **DELETE** | `/api/products/:productId`                     | Delete product by ID                                    | **URL param:** `productId = 60c72b...`                                                                                                                                            | **204 No Content** or **404 Not Found**   |
+| **POST**   | `/api/products/:productId/variants`            | Add variant to a product                                | `json { "sku": "soap-lavender-001", "price": 60, "options": [{ "name": "color", "value": "purple" }] } `                                                                          | **201 Created** with variant object       |
+| **PATCH**  | `/api/products/:productId/variants/:variantId` | Update variant of a product                             | `json { "price": 65 } `                                                                                                                                                           | **200 OK** with updated variant object    |
+| **DELETE** | `/api/products/:productId/variants/:variantId` | Delete variant from product                             | **URL params:** `productId`, `variantId`                                                                                                                                          | **204 No Content** or **404 Not Found**   |
+| **POST**   | `/api/products/:productId/images`              | Add multiple images to a product                        | **Form-Data:** `images: (multiple files)`<br>**Note:** Uses `upload.array("images")` middleware.                                                                                  | **200 OK** with updated product images    |
+
 
 */ 
+/**
+ * @route GET /products
+ * @desc Get all products with support for filters, pagination, and search
+ * @access Public
+ *
+ * @route POST /products
+ * @desc Create a new product (supports image upload)
+ * @access Private (requires authentication)
+ */
 router.route("/")
-  .get(productController.getAllProducts) // supports filters, pagination, search
-  .post(upload.single("image"), validate(createProductSchema), productController.createProduct);
+  .get(productController.getAllProducts)
+  .post(
+    upload.single("image"),
+    validate(createProductSchema),
+    productController.createProduct
+  );
 
-router.route("/search")
-  .get(productController.searchProducts);
+/**
+ * @route GET /products/search
+ * @desc Search products by keyword
+ * @access Public
+ */
+router.route("/search").get(productController.searchProducts);
 
+/**
+ * @route GET /products/:productId
+ * @desc Get product details by product ID
+ * @access Public
+ *
+ * @route PATCH /products/:productId
+ * @desc Update product details by product ID
+ * @access Private (owner or admin)
+ *
+ * @route DELETE /products/:productId
+ * @desc Delete product by product ID
+ * @access Private (owner or admin)
+ */
 router.route("/:productId")
   .get(productController.getProductById)
   .patch(validate(updateProductSchema), productController.updateProduct)
   .delete(productController.deleteProduct);
 
+/**
+ * @route POST /products/:productId/variants
+ * @desc Add a variant (e.g., color, size) to a product
+ * @access Private (owner or admin)
+ *
+ * @route PATCH /products/:productId/variants/:variantId
+ * @desc Update a product variant by variant ID
+ * @access Private (owner or admin)
+ *
+ * @route DELETE /products/:productId/variants/:variantId
+ * @desc Delete a product variant by variant ID
+ * @access Private (owner or admin)
+ */
 router.route("/:productId/variants")
   .post(validate(createVariantSchema), productController.addVariant);
 
@@ -40,6 +84,11 @@ router.route("/:productId/variants/:variantId")
   .patch(validate(updateVariantSchema), productController.updateVariant)
   .delete(productController.deleteVariant);
 
+/**
+ * @route POST /products/:productId/images
+ * @desc Upload multiple images for a product
+ * @access Private (owner or admin)
+ */
 router.route("/:productId/images")
   .post(upload.array("images"), productController.addImages);
 
