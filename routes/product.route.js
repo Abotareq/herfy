@@ -1,29 +1,46 @@
 import express from "express";
-import upload from "../middlewares/uploade.middleware";
-
 import productController from "../controllers/product.controller.js";
-const productRoute =express.Router();
+import upload from "../middlewares/upload.middleware.js";
+import validate from "../middlewares/validate.middleware.js";
+import { createProductSchema, updateProductSchema } from "../validations/product.validation.js";
 
-productRoute.route("/")
-                .get(ProductController.getAllProducts)
-                /*
-                image point to 
-                    // frontend
-                    <form action="/api/products" method="POST" enctype="multipart/form-data">
-                        <input type="file" name="image" /> same name here
-                        <button type="submit">Upload</button>
-                    </form>
+const router = express.Router();
 
-                    // postman 
-                    field name of formate data 
-                */ 
-                .post(upload.single("image"),productController.createProduct)
-productRoute.route("/:productId")
-                .delete()
-                .patch()
-                .put()
-                .get()
-productRoute.route("/search")
-                .get(ProductController.searchProducts)
+/*
+  |  | Route                                          | Method | Purpose                            |
+| -- | ---------------------------------------------- | ------ | ---------------------------------- |
+| 1  | `/api/products`                                | POST   | Create Product                     |
+| 2  | `/api/products`                                | GET    | List Products (filters/pagination) |
+| 3  | `/api/products/search`                         | GET    | Search Products                    |
+| 4  | `/api/products/:productId`                     | GET    | Get single Product                 |
+| 5  | `/api/products/:productId`                     | PATCH  | Update Product                     |
+| 6  | `/api/products/:productId`                     | DELETE | Delete Product                     |
+| 7  | `/api/products/:productId/variants`            | POST   | Add Variant                        |
+| 8  | `/api/products/:productId/variants/:variantId` | PATCH  | Update Variant                     |
+| 9  | `/api/products/:productId/variants/:variantId` | DELETE | Delete Variant                     |
+| 10 | `/api/products/:productId/images`              | POST   | Add multiple images                |
 
-export default productRoute ;
+*/ 
+router.route("/")
+  .get(productController.getAllProducts) // supports filters, pagination, search
+  .post(upload.single("image"), validate(createProductSchema), productController.createProduct);
+
+router.route("/search")
+  .get(productController.searchProducts);
+
+router.route("/:productId")
+  .get(productController.getProductById)
+  .patch(validate(updateProductSchema), productController.updateProduct)
+  .delete(productController.deleteProduct);
+
+router.route("/:productId/variants")
+  .post(validate(createVariantSchema), productController.addVariant);
+
+router.route("/:productId/variants/:variantId")
+  .patch(validate(updateVariantSchema), productController.updateVariant)
+  .delete(productController.deleteVariant);
+
+router.route("/:productId/images")
+  .post(upload.array("images"), productController.addImages);
+
+export default router;
