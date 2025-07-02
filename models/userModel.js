@@ -49,12 +49,12 @@ const userSchema = new mongoose.Schema(
     },
     firstName: {
       type: String,
-      required: [true, "S name is required"],
+      required: [true, "First name is required"],
       trim: true,
     },
     lastName: {
       type: String,
-      required: [true, "First name is required"],
+      required: [true, "last name is required"],
       trim: true,
     },
     email: {
