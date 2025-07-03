@@ -9,7 +9,7 @@
 
 
 import mongoose from 'mongoose';
-const slugify = require('slugify');
+import slugify from 'slugify';
 
 const categorySchema = new mongoose.Schema({
   name: {
