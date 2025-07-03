@@ -5,20 +5,21 @@ import StatusCodes from "../utils/status.codes.js";
 
 /**
  * Create a new product.
- * @route POST /products
+ * @route POST /api/v1/products
  * @access Private (requires authorization)
  * @param {Object} req.body - Product data.
  * @param {File} req.file - Optional product image.
  * @returns {Object} Created product.
  */
 const createProduct = asyncWrapper(async (req, res) => {
+  // TODO: Add validation before service call
   const product = await productService.createProduct(req.body, req.file);
   res.status(StatusCodes.CREATED).json({ status: JSEND_STATUS.SUCCESS, data: product });
 });
 
 /**
  * Get all products with optional filters, pagination, and search.
- * @route GET /products
+ * @route GET /api/products
  * @access Public
  * @param {Object} req.query - Filters and pagination options.
  * @returns {Object} Products list and metadata.
@@ -30,7 +31,7 @@ const getAllProducts = asyncWrapper(async (req, res) => {
 
 /**
  * Get a product by its ID.
- * @route GET /products/:productId
+ * @route GET /api/v1/products/:productId
  * @access Public
  * @param {string} req.params.productId - Product ID.
  * @returns {Object} Product details.
@@ -42,20 +43,21 @@ const getProductById = asyncWrapper(async (req, res) => {
 
 /**
  * Update a product by its ID.
- * @route PATCH /products/:productId
+ * @route PATCH /api/v1/products/:productId
  * @access Private (requires authorization)
  * @param {string} req.params.productId - Product ID.
  * @param {Object} req.body - Product data to update.
  * @returns {Object} Updated product.
  */
 const updateProduct = asyncWrapper(async (req, res) => {
-  const product = await productService.updateProduct(req.params.productId, req.body);
+  // TODO: Add validation before service call
+  const product = await productService.updateProduct(req.params.productId, req.body, req.file);
   res.status(StatusCodes.OK).json({ status: JSEND_STATUS.SUCCESS, data: product });
 });
 
 /**
  * Delete a product by its ID.
- * @route DELETE /products/:productId
+ * @route DELETE /api/v1/products/:productId
  * @access Private (requires authorization)
  * @param {string} req.params.productId - Product ID.
  * @returns {void}
@@ -67,20 +69,21 @@ const deleteProduct = asyncWrapper(async (req, res) => {
 
 /**
  * Add a variant to a product.
- * @route POST /products/:productId/variants
+ * @route POST /api/v1/products/:productId/variants
  * @access Private (requires authorization)
  * @param {string} req.params.productId - Product ID.
  * @param {Object} req.body - Variant data.
  * @returns {Object} Updated product with new variant.
  */
 const addVariant = asyncWrapper(async (req, res) => {
+  // TODO: Add validation for variant data
   const product = await productService.addVariant(req.params.productId, req.body);
   res.status(StatusCodes.CREATED).json({ status: JSEND_STATUS.SUCCESS, data: product });
 });
 
 /**
  * Update a variant of a product.
- * @route PATCH /products/:productId/variants/:variantId
+ * @route PATCH /api/v1/products/:productId/variants/:variantId
  * @access Private (requires authorization)
  * @param {string} req.params.productId - Product ID.
  * @param {string} req.params.variantId - Variant ID.
@@ -94,7 +97,7 @@ const updateVariant = asyncWrapper(async (req, res) => {
 
 /**
  * Delete a variant from a product.
- * @route DELETE /products/:productId/variants/:variantId
+ * @route DELETE /api/v1/products/:productId/variants/:variantId
  * @access Private (requires authorization)
  * @param {string} req.params.productId - Product ID.
  * @param {string} req.params.variantId - Variant ID.
@@ -107,7 +110,7 @@ const deleteVariant = asyncWrapper(async (req, res) => {
 
 /**
  * Add multiple images to a product.
- * @route POST /products/:productId/images
+ * @route POST /api/v1/products/:productId/images
  * @access Private (requires authorization)
  * @param {string} req.params.productId - Product ID.
  * @param {Array<File>} req.files - Array of image files.
@@ -117,6 +120,36 @@ const addImages = asyncWrapper(async (req, res) => {
   const product = await productService.addImages(req.params.productId, req.files);
   res.status(StatusCodes.CREATED).json({ status: JSEND_STATUS.SUCCESS, data: product });
 });
+
+/**
+ * Search products by query with filters and pagination.
+ * @route GET /api/v1/products/search
+ * @access Public
+ * @param {Object} req.query - Search query and filters.
+ * @returns {Object} Products matching search with pagination.
+ */
+const searchProducts = asyncWrapper(async (req, res) => {
+  const data = await productService.searchProducts({
+    query: req.query.q,
+    page: req.query.page,
+    limit: req.query.limit,
+    category: req.query.category,
+    color: req.query.color,
+    size: req.query.size,
+    minPrice: req.query.minPrice,
+    maxPrice: req.query.maxPrice
+  });
+  res.status(StatusCodes.OK).json({ status: JSEND_STATUS.SUCCESS, ...data });
+});
+
+/**
+ * Add a review to a product.
+ * @route POST /api/v1/products/:productId/reviews
+ * @access Private (requires authentication)
+ * @param {string} req.params.productId - Product ID.
+ * @param {Object} req.body - Review data (rating, comment).
+ * @returns {Object} Created review and updated product ratings.
+ */
 
 export default {
   createProduct,
@@ -128,4 +161,5 @@ export default {
   updateVariant,
   deleteVariant,
   addImages,
+  searchProducts
 };
