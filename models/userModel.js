@@ -21,7 +21,7 @@
 
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
-
+import userRole from '../utils/user.role.js'
 // A sub-document for addresses
 // تفاصيل العنوان كتيرة شوية
 const addressSchema = new mongoose.Schema({
@@ -78,8 +78,8 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["customer", "vendor", "admin"],
-      default: "customer",
+      enum: [userRole.ADMIN, userRole.CUSTOMER, userRole.VENDOR],
+      default: userRole.CUSTOMER,
     },
     addresses: [addressSchema], // Array of address sub-documents
     wishlist: [

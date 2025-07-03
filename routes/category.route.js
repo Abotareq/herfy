@@ -4,9 +4,10 @@ import {getAllCategoty,
         deleteCategory } from "../controllers/category.controller.js";
 
 import express from 'express';
-const categoryRouter = express.Router;
+const categoryRouter = express.Router();
 
 categoryRouter.get('/', getAllCategoty)
 categoryRouter.get('/:id', getCategotyById)
 categoryRouter.delete('/:id', deleteCategory)
-categoryRouter.post('/:id', addNewCategory)
+categoryRouter.post('/', addNewCategory)
+export default categoryRouter;

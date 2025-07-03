@@ -1,6 +1,6 @@
-import User from '../models/userModel';
-import StatusCodes from '../utils/status.codes';
-import httpStatus from '../utils/http.status.message'
+import User from '../models/userModel.js';
+import StatusCodes from '../utils/status.codes.js';
+import httpStatus from '../utils/http.status.message.js'
 // getAllUsers, getUserbyId, delete, update => admin;
 // get all users
 export const getAllUsers = async(req, res) => {
@@ -10,7 +10,7 @@ export const getAllUsers = async(req, res) => {
     const limit = query.limit
     const end = (page - 1)*limit
     // get all users
-    const users = await User.find().populate('wishlist').limit(limit).skip(end)
+    const users = await User.find().populate('wishlist', 'addresses').limit(limit).skip(end)
     if(!users){
         res.status(StatusCodes.NOT_FOUND).json({staus: httpStatus.FAIL, data: {message: 'No user available'}})
     }
@@ -29,7 +29,7 @@ export const getUserById = async (req, res) => {
         res.status(StatusCodes.UNAUTHORIZED).json({data: {message:error}})
 }
 }
-const updateUser = async(req, res) => {
+export const updateUser = async(req, res) => {
     // check if the token contain the id
     if(req.decoded.id !== req.params.id){
         return res.status(StatusCodes.BAD_REQUEST).json({status: httpStatus.ERROR, data:{message: "Unothraized User"}});

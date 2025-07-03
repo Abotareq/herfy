@@ -1,5 +1,5 @@
 import storeService from "../services/store.service.js";
-import asyncWrapper from "../middlewares/asyncWrapper.js";
+import asyncWrapper from "../middlewares/async.wrapper.js";
 import StatusCodes from "../utils/status.codes.js"
 import JSEND_STATUS from "../utils/http.status.message.js"
 

@@ -1,8 +1,6 @@
 import Category from "../models/categoryModel.js";
-import StatusCodes from '../utils/status.codes';
-import httpStatus from '../utils/http.status.message'
-import StatusCodes from './../utils/status.codes';
-import { getAllCategoty } from './category.controller';
+import StatusCodes from '../utils/status.codes.js';
+import httpStatus from '../utils/http.status.message.js'
 
 // get all category
 export const getAllCategoty = async(req, res) => {
@@ -23,15 +21,12 @@ export const getAllCategoty = async(req, res) => {
 }
 // add category
 export const addNewCategory = async (req, res) => {
-    if(!req.decoded){
-        res.status(StatusCodes.BAD_REQUEST).json({status: httpStatus.ERROR, data:{message: 'Unothorized user'}})
-    }
     try {
-        const {name, parent, image} = req.body;
+        const {name} = req.body;
         const newCategory = await Category.create({
-            name,
-            parent,
-            image
+            name
+            //parent
+            // handle image from multer
         })
         res.status(StatusCodes.ACCEPTED).json({status: httpStatus.SUCCESS, data:{newCategory}})
     } catch (error) {
