@@ -17,10 +17,15 @@ import { fileURLToPath } from "url";
 import authRoutes from "./auth/auth.routes.js";
 import { connecToDb, closeDbConnection } from "./utils/dbConnecion.js";
 import errorHandler from "./middlewares/error-handler.js";
-// import productRoute from "./routes/product.route.js";
-// import storeRoute from "./routes/store.route.js";
+import productRoute from "./routes/product.route.js";
+import storeRoute from "./routes/store.route.js";
 import categoryRouter from "./routes/category.route.js";
 import userRouter from "./routes/user.route.js";
+import productRoute from "./routes/product.route.js";
+import storeRoute from "./routes/store.route.js";
+import orderRoute from "./routes/order.route.js";
+import paymentRoute from "./routes/payment.route.js"
+import cartRoute from "./routes/cart.route.js"
 //*------------------------------------app setup------------------------------------*//
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -50,14 +55,16 @@ app.use("/api/auth", authRoutes);
 // app.use("/api", routes);
 
 // product Route 
-// app.use("/api/products",productRoute);
-// app.use("/api/store",storeRoute);
+ app.use("/api/products",productRoute);
+ app.use("/api/store",storeRoute);
 // user Route
 app.use('/api/users', userRouter)
 app.use('/api/category', categoryRouter)
-
-
-
+app.use("/api/products",productRoute);
+app.use("/api/store",storeRoute);
+app.use("/api/order",orderRoute);
+app.use("/api/payment",paymentRoute);
+app.use("/api/cart",cartRoute);
 
 
 
