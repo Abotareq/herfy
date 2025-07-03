@@ -1,4 +1,48 @@
 import Joi from "joi";
+import { isValidObjectId } from "./custome.validation.js";
+/**
+ * @schema updateVariantSchema
+ * @description Schema for updating a product variant.
+ * Allows partial updates (optional fields).
+ */
+export const updateVariantSchema = Joi.object({
+  variantId: Joi.string()
+    .required()
+    .custom((value, helpers) => {
+      if (!isValidObjectId(value)) {
+        return helpers.error("any.invalid");
+      }
+      return value;
+    }, "ObjectId Validation"),
+  productId: Joi.string()
+    .optional()
+    .custom((value, helpers) => {
+      if (!isValidObjectId(value)) {
+        return helpers.error("any.invalid");
+      }
+      return value;
+    }, "ObjectId Validation"),
+  name: Joi.string().optional(),
+  price: Joi.number().optional(),
+  stock: Joi.number().integer().min(0).optional(),
+});
+/**
+ * @schema createVariantSchema
+ * @description Schema for creating a product variant
+ */
+export const createVariantSchema = Joi.object({
+  productId: Joi.string()
+    .required()
+    .custom((value, helpers) => {
+      if (!isValidObjectId(value)) {
+        return helpers.error("any.invalid");
+      }
+      return value;
+    }, "ObjectId Validation"),
+  name: Joi.string().required(),
+  price: Joi.number().required(),
+  stock: Joi.number().integer().min(0).default(0),
+});
 /**
  * Schema for creating a new product.
  * Validates store, name, description, basePrice, category, images, and variants.

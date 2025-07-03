@@ -1,6 +1,38 @@
 import Product from "../models/productModel.js";
 import appErrors from "../utils/app.errors.js";
+// import Review from "../models/review.model.js";
 
+/**
+ * Returns the MongoDB sort object based on the given sort key.
+ *
+ * @param {string} sort - The sort key indicating the sorting criteria.
+ * Supported values:
+ *   - "popularity_desc": Sort by reviewCount descending (most popular first)
+ *   - "popularity_asc": Sort by reviewCount ascending
+ *   - "rating_desc": Sort by averageRating descending (highest rating first)
+ *   - "rating_asc": Sort by averageRating ascending
+ *   - "latest": Sort by createdAt descending (newest first)
+ *   - "oldest": Sort by createdAt ascending (oldest first)
+ *   - "price_asc": Sort by price ascending (lowest price first)
+ *   - "price_desc": Sort by price descending (highest price first)
+ *
+ * @returns {Object} MongoDB sort object, e.g. { fieldName: 1 } or { fieldName: -1 }.
+ * Defaults to sorting by createdAt descending if the sort key is invalid or missing.
+ */
+const getSortOption = (sort) => {
+  const sortOptionsMap = {
+    popularity_desc: { reviewCount: -1 },
+    popularity_asc: { reviewCount: 1 },
+    rating_desc: { averageRating: -1 },
+    rating_asc: { averageRating: 1 },
+    latest: { createdAt: -1 },
+    oldest: { createdAt: 1 },
+    price_asc: { price: 1 },
+    price_desc: { price: -1 },
+  };
+  
+  return sortOptionsMap[sort] || { createdAt: -1 };
+};
 /**
  * Builds the query object for product filters.
  *
@@ -44,26 +76,54 @@ const createProduct = async (data, file) => {
 };
 
 /**
- * Retrieves all products with filters and pagination.
+ * Retrieves all products with filters, sorting, and pagination.
  *
- * @param {object} options - Options for retrieval.
- * @param {number} [options.page=1] - Current page.
- * @param {number} [options.limit=10] - Items per page.
- * @param {string} [options.category] - Category filter.
- * @param {string} [options.search] - Search string.
- * @param {string} [options.color] - Color filter.
- * @param {string} [options.size] - Size filter.
- * @param {number} [options.minPrice] - Minimum price.
- * @param {number} [options.maxPrice] - Maximum price.
- * @returns {Promise<object>} - An object containing products, pagination info.
+ * @param {Object} options - Options for retrieving products.
+ * @param {number} [options.page=1] - The current page number for pagination.
+ * @param {number} [options.limit=10] - Number of products per page.
+ * @param {string} [options.category] - Filter products by category.
+ * @param {string} [options.search] - Search string to match product fields.
+ * @param {string} [options.color] - Filter products by color.
+ * @param {string} [options.size] - Filter products by size.
+ * @param {number} [options.minPrice] - Minimum price filter.
+ * @param {number} [options.maxPrice] - Maximum price filter.
+ * @param {string} [options.sort] - Sorting criteria, possible values:
+ *   - "popularity_desc" (default: most reviews first)
+ *   - "popularity_asc"
+ *   - "rating_desc"
+ *   - "rating_asc"
+ *   - "latest"
+ *   - "oldest"
+ *   - "price_asc"
+ *   - "price_desc"
+ *
+ * @returns {Promise<Object>} Promise resolving to an object containing:
+ *   - products: Array of product documents matching the filters.
+ *   - totalProducts: Total number of products matching the filters.
+ *   - totalPages: Total number of pages based on limit.
+ *   - currentPage: The current page number.
+ *   - limit: Number of products per page.
  */
-const getAllProducts = async ({ page = 1, limit = 10, category, search, color, size, minPrice, maxPrice }) => {
+const getAllProducts = async ({
+  page = 1,
+  limit = 10,
+  category,
+  search,
+  color,
+  size,
+  minPrice,
+  maxPrice,
+  sort
+}) => {
   const query = buildProductFilterQuery({ category, search, color, size, minPrice, maxPrice });
+
+  const sortOption = getSortOption(sort);
 
   const totalProducts = await Product.countDocuments(query);
   const totalPages = Math.ceil(totalProducts / limit);
 
   const products = await Product.find(query)
+    .sort(sortOption)
     .skip((page - 1) * limit)
     .limit(limit);
 
@@ -78,9 +138,10 @@ const getAllProducts = async ({ page = 1, limit = 10, category, search, color, s
  * @throws {AppError} - Throws if not found.
  */
 const getProductById = async (id) => {
-  const product = await Product.findById(id);
+  const product = await Product.findById(id).lean();
+  const reviews = await Review.find({ product: productId }).populate("user", "name");
   if (!product) throw appErrors.notFound("Product not found");
-  return product;
+  return { ...product, reviews };
 };
 
 /**
@@ -91,9 +152,25 @@ const getProductById = async (id) => {
  * @returns {Promise<object>} - Updated product.
  * @throws {AppError} - Throws if not found.
  */
-const updateProduct = async (id, data) => {
-  const product = await Product.findByIdAndUpdate(id, data, { new: true });
-  if (!product) throw appErrors.notFound("Product not found");
+const updateProduct = async (productId, updateData, file) => {
+  const product = await Product.findById(productId);
+  if (!product) {
+    throw new appErrors("Product not found", StatusCodes.NOT_FOUND);
+  }
+
+  // If there's an uploaded image file, update product's image URL/path
+  if (file) {
+    updateData.imageUrl = file.path; // or file.location if cloud storage like S3
+  }
+
+  // Update product fields with new data
+  Object.keys(updateData).forEach((key) => {
+    product[key] = updateData[key];
+  });
+
+  // Save updated product
+  await product.save();
+
   return product;
 };
 
@@ -184,6 +261,33 @@ const addImages = async (productId, files) => {
   return product;
 };
 
+/**
+ * Searches products with query, filters, and pagination.
+ *
+ * @param {object} options - Search options.
+ * @param {string} options.query - Search string.
+ * @param {number} [options.page=1] - Current page.
+ * @param {number} [options.limit=10] - Items per page.
+ * @param {string} [options.category] - Category filter.
+ * @param {string} [options.color] - Color filter.
+ * @param {string} [options.size] - Size filter.
+ * @param {number} [options.minPrice] - Minimum price.
+ * @param {number} [options.maxPrice] - Maximum price.
+ * @returns {Promise<object>} - Matching products with pagination info.
+ */
+const searchProducts = async ({ query, page = 1, limit = 10, category, color, size, minPrice, maxPrice }) => {
+  const filterQuery = buildProductFilterQuery({ category, search: query, color, size, minPrice, maxPrice });
+
+  const totalProducts = await Product.countDocuments(filterQuery);
+  const totalPages = Math.ceil(totalProducts / limit);
+
+  const products = await Product.find(filterQuery)
+    .skip((page - 1) * limit)
+    .limit(limit);
+
+  return { products, totalProducts, totalPages, currentPage: page, limit };
+};
+
 export default {
   createProduct,
   getAllProducts,
@@ -194,5 +298,6 @@ export default {
   updateVariant,
   deleteVariant,
   addImages,
-  buildProductFilterQuery
+  buildProductFilterQuery,
+  searchProducts,
 };

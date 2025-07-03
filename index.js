@@ -19,6 +19,9 @@ import { connecToDb, closeDbConnection } from "./utils/dbConnecion.js";
 import errorHandler from "./middlewares/error-handler.js";
 import productRoute from "./routes/product.route.js";
 import storeRoute from "./routes/store.route.js";
+import orderRoute from "./routes/order.route.js";
+import paymentRoute from "./routes/payment.route.js"
+import cartRoute from "./routes/cart.route.js"
 //*------------------------------------app setup------------------------------------*//
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -50,6 +53,9 @@ app.use("/api/auth", authRoutes);
 // product Route 
 app.use("/api/products",productRoute);
 app.use("/api/store",storeRoute);
+app.use("/api/order",orderRoute);
+app.use("/api/payment",paymentRoute);
+app.use("/api/cart",cartRoute);
 //*------------------------------------error handler (last)------------------------------------*//
 app.use(errorHandler);
 

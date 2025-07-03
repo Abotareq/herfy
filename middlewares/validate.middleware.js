@@ -1,5 +1,5 @@
-import StatusCodes from "../utils/statusCodes.js";
-import JSEND_STATUS from "../utils/httpStatusMessages.js";
+import StatusCodes from "../utils/status.codes.js";
+import JSEND_STATUS from "../utils/http.status.message.js";
 
 /**
  * Middleware to validate request body against a Joi schema.
