@@ -3,12 +3,9 @@ import StatusCodes from "../utils/status.codes.js";
 import JSEND_STATUS from "../utils/http.status.message.js";
 import Order from "../models/orderModel.js";
 import Product from "../models/productModel.js";
-import Payment from "../models/paymentModel.js";
+// import Payment from "../models/paymentModel.js";
 import appErrors from "../utils/app.errors.js";
-
-/**
- * Create a new order for user with transaction.
- */
+import Store from "../models/storeModel.js";
 const httpMessages = {
   ORDER_CREATED: "Order created successfully.",
   ORDER_FETCHED: "Order fetched successfully.",
@@ -25,9 +22,8 @@ const httpMessages = {
   INSUFFICIENT_STOCK: "Insufficient stock for product",
   UNAUTHORIZED: "You are not authorized to perform this action."
 };
+
 const createOrder = async (userId, orderData) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
   try {
     const {
       orderItems,
@@ -41,17 +37,9 @@ const createOrder = async (userId, orderData) => {
       paidAt
     } = orderData;
 
-    // Verify payment exists if provided
-    if (payment) {
-      const paymentDoc = await Payment.findById(payment).session(session);
-      if (!paymentDoc)
-        throw appErrors.notFound(httpMessages.PAYMENT_NOT_FOUND, StatusCodes.NOT_FOUND);
-    }
-
-    // Build enriched order items with stock validation
     const enrichedItems = await Promise.all(
       orderItems.map(async (item) => {
-        const product = await Product.findById(item.product).session(session);
+        const product = await Product.findById(item.product);
         if (!product)
           throw appErrors.notFound(httpMessages.PRODUCT_NOT_FOUND, StatusCodes.NOT_FOUND);
 
@@ -61,40 +49,33 @@ const createOrder = async (userId, orderData) => {
             StatusCodes.BAD_REQUEST
           );
 
+        // dont forget handle payment 
         product.stock -= item.quantity;
-        await product.save({ session });
+        await product.save(); 
 
         return {
           product: item.product,
-          store: item.store,
+          store: product.store, // 🟢 retrieved from product.store field
           name: product.name,
-          price: product.price,
-          image: product.images,
+          price: product.basePrice,
+          image: product.images[0],
           quantity: item.quantity
         };
       })
     );
 
-    const [order] = await Order.create(
-      [
-        {
-          user: userId,
-          orderItems: enrichedItems,
-          shippingAddress,
-          payment,
-          subtotal,
-          shippingFee,
-          tax,
-          totalAmount,
-          status,
-          paidAt
-        }
-      ],
-      { session }
-    );
-
-    await session.commitTransaction();
-    session.endSession();
+    const order = await Order.create({
+      user: userId,
+      orderItems: enrichedItems,
+      shippingAddress,
+      payment,
+      subtotal,
+      shippingFee,
+      tax,
+      totalAmount,
+      status,
+      paidAt
+    });
 
     return {
       status: JSEND_STATUS.SUCCESS,
@@ -103,8 +84,6 @@ const createOrder = async (userId, orderData) => {
       data: order
     };
   } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
     throw error;
   }
 };
@@ -120,10 +99,11 @@ const getUserOrders = async (userId, page = 1, limit = 10) => {
 
   const ordersPromise = Order.find({ user: userId })
     .populate("orderItems.product")
-    .populate("orderItems.store")
-    .populate("payment")
     .skip(skip)
     .limit(limit);
+    // .populate("orderItems.store")
+    // .populate("payment")
+    
 
   const countPromise = Order.countDocuments({ user: userId });
 
@@ -142,7 +122,6 @@ const getUserOrders = async (userId, page = 1, limit = 10) => {
   };
 };
 
-
 /**
  * Get all orders (admin).
  */
@@ -154,8 +133,8 @@ const getAllOrders = async (page = 1, limit = 10) => {
 
   const ordersPromise = Order.find()
     .populate("orderItems.product")
-    .populate("orderItems.store")
-    .populate("payment")
+    // .populate("orderItems.store")
+    // .populate("payment")
     .skip(skip)
     .limit(limit);
 
@@ -176,15 +155,14 @@ const getAllOrders = async (page = 1, limit = 10) => {
   };
 };
 
-
 /**
  * Get order by ID (admin).
  */
 const getOrderById = async (orderId) => {
   const order = await Order.findById(orderId)
     .populate("orderItems.product")
-    .populate("orderItems.store")
-    .populate("payment");
+    // .populate("orderItems.store")
+    // .populate("payment");
 
   if (!order)
     throw appErrors.notFound(httpMessages.ORDER_NOT_FOUND, StatusCodes.NOT_FOUND);
@@ -206,14 +184,16 @@ const getOrderById = async (orderId) => {
 const getSellerOrders = async (sellerId, page = 1, limit = 10) => {
   const skip = (page - 1) * limit;
 
-  const ordersPromise = Order.find({ "orderItems.store": sellerId })
+  const stores = await Store.find({ owner: sellerId }).select('_id');
+  console.log(stores)
+  const storeIds = stores.map(s => s._id);
+
+  const ordersPromise = Order.find({ "orderItems.store": { $in: storeIds } })
     .populate("orderItems.product")
-    .populate("orderItems.store")
-    .populate("payment")
     .skip(skip)
     .limit(limit);
 
-  const countPromise = Order.countDocuments({ "orderItems.store": sellerId });
+  const countPromise = Order.countDocuments({ "orderItems.store": { $in: storeIds } });
 
   const [orders, total] = await Promise.all([ordersPromise, countPromise]);
 
@@ -229,6 +209,7 @@ const getSellerOrders = async (sellerId, page = 1, limit = 10) => {
     }
   };
 };
+
 
 /**
  * Update order status (admin).
@@ -252,8 +233,8 @@ const updateOrderStatus = async (orderId, status) => {
 const getMyOrderById = async (orderId, userId) => {
   const order = await Order.findById(orderId)
     .populate("orderItems.product")
-    .populate("orderItems.store")
-    .populate("payment");
+    // .populate("orderItems.store")
+    // .populate("payment");
 
   if (!order)
     throw appErrors.notFound(httpMessages.ORDER_NOT_FOUND, StatusCodes.NOT_FOUND);
@@ -273,79 +254,69 @@ const getMyOrderById = async (orderId, userId) => {
  * Cancel an order and rollback stock quantities.
  */
 const cancelOrder = async (orderId) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-  try {
-    const order = await Order.findById(orderId).session(session);
-    if (!order)
-      throw appErrors.notFound(httpMessages.ORDER_NOT_FOUND, StatusCodes.NOT_FOUND);
+  // const session = await mongoose.startSession();
+  // session.startTransaction();
+  // try {
+  //   const order = await Order.findById(orderId).session(session);
+  //   if (!order)
+  //     throw appErrors.notFound(httpMessages.ORDER_NOT_FOUND, StatusCodes.NOT_FOUND);
 
-    if (order.status === "cancelled") {
-      throw appErrors.badRequest(httpMessages.ORDER_ALREADY_CANCELLED, StatusCodes.BAD_REQUEST);
-    }
+  //   if (order.status === "cancelled") {
+  //     throw appErrors.badRequest(httpMessages.ORDER_ALREADY_CANCELLED, StatusCodes.BAD_REQUEST);
+  //   }
 
-    for (let item of order.orderItems) {
-      const product = await Product.findById(item.product).session(session);
-      if (product) {
-        product.stock += item.quantity;
-        await product.save({ session });
-      }
-    }
+  //   for (let item of order.orderItems) {
+  //     const product = await Product.findById(item.product).session(session);
+  //     if (product) {
+  //       product.stock += item.quantity;
+  //       await product.save({ session });
+  //     }
+  //   }
 
-    order.status = "cancelled";
-    await order.save({ session });
+  //   order.status = "cancelled";
+  //   await order.save({ session });
 
-    await session.commitTransaction();
-    session.endSession();
+  //   await session.commitTransaction();
+  //   session.endSession();
 
-    return {
-      status: JSEND_STATUS.SUCCESS,
-      statusCode: StatusCodes.OK,
-      message: httpMessages.ORDER_CANCELLED,
-      data: order
-    };
-  } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
-    throw error;
+  //   return {
+  //     status: JSEND_STATUS.SUCCESS,
+  //     statusCode: StatusCodes.OK,
+  //     message: httpMessages.ORDER_CANCELLED,
+  //     data: order
+  //   };
+  // } catch (error) {
+  //   await session.abortTransaction();
+  //   session.endSession();
+  //   throw error;
+  // }
+  const order = await Order.findById(orderId);
+  if (!order)
+    throw appErrors.notFound(httpMessages.ORDER_NOT_FOUND, StatusCodes.NOT_FOUND);
+
+  if (order.status === "cancelled") {
+    throw appErrors.badRequest(httpMessages.ORDER_ALREADY_CANCELLED, StatusCodes.BAD_REQUEST);
   }
-};
 
-/**
- * Delete an order and rollback stock quantities.
- */
-const deleteOrder = async (orderId) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-  try {
-    const order = await Order.findById(orderId).session(session);
-    if (!order)
-      throw appErrors.notFound(httpMessages.ORDER_NOT_FOUND, StatusCodes.NOT_FOUND);
-
-    for (let item of order.orderItems) {
-      const product = await Product.findById(item.product).session(session);
-      if (product) {
-        product.stock += item.quantity;
-        await product.save({ session });
-      }
+  // Increase product stock without session
+  for (let item of order.orderItems) {
+    const product = await Product.findById(item.product);
+    if (product) {
+      product.stock += item.quantity;
+      await product.save(); // no session used
     }
-
-    await order.deleteOne({ session });
-
-    await session.commitTransaction();
-    session.endSession();
-
-    return {
-      status: JSEND_STATUS.SUCCESS,
-      statusCode: StatusCodes.OK,
-      message: httpMessages.ORDER_DELETED,
-      data: order
-    };
-  } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
-    throw error;
   }
+
+  // Update order status to cancelled
+  order.status = "cancelled";
+  await order.save();
+
+  return {
+    status: JSEND_STATUS.SUCCESS,
+    statusCode: StatusCodes.OK,
+    message: httpMessages.ORDER_CANCELLED,
+    data: order
+  };
 };
 
 /**
@@ -380,16 +351,72 @@ const updateOrderItem = async (orderId, itemId, fields, file) => {
   return item;
 };
 
+/**
+ * Delete an order and rollback stock quantities.
+ */
+const deleteOrder = async (orderId) => {
+  // const session = await mongoose.startSession();
+  // session.startTransaction();
+  // try {
+  //   const order = await Order.findById(orderId).session(session);
+  //   if (!order)
+  //     throw appErrors.notFound(httpMessages.ORDER_NOT_FOUND, StatusCodes.NOT_FOUND);
 
-export default {
-  createOrder,
-  getUserOrders,
-  getAllOrders,
-  getOrderById,
-  getSellerOrders,
-  updateOrderStatus,
-  getMyOrderById,
-  cancelOrder,
-  deleteOrder,
-  updateOrderItem
+  //   for (let item of order.orderItems) {
+  //     const product = await Product.findById(item.product).session(session);
+  //     if (product) {
+  //       product.stock += item.quantity;
+  //       await product.save({ session });
+  //     }
+  //   }
+
+  //   await order.deleteOne({ session });
+
+  //   await session.commitTransaction();
+  //   session.endSession();
+
+  //   return {
+  //     status: JSEND_STATUS.SUCCESS,
+  //     statusCode: StatusCodes.OK,
+  //     message: httpMessages.ORDER_DELETED,
+  //     data: order
+  //   };
+  // } catch (error) {
+  //   await session.abortTransaction();
+  //   session.endSession();
+  //   throw error;
+  // }
+  const order = await Order.findById(orderId);
+  if (!order)
+    throw appErrors.notFound(httpMessages.ORDER_NOT_FOUND, StatusCodes.NOT_FOUND);
+
+  for (let item of order.orderItems) {
+    const product = await Product.findById(item.product);
+    if (product) {
+      product.stock += item.quantity;
+      await product.save();
+    }
+  }
+
+  await order.deleteOne();
+
+  return {
+    status: JSEND_STATUS.SUCCESS,
+    statusCode: StatusCodes.OK,
+    message: httpMessages.ORDER_DELETED,
+    data: order
+  };
 };
+
+export default{
+    createOrder,
+    getUserOrders,
+    getAllOrders,
+    getOrderById,
+    getSellerOrders,
+    updateOrderStatus,
+    getMyOrderById,
+    cancelOrder,
+    updateOrderItem,
+    deleteOrder
+}

@@ -1,23 +1,17 @@
-import express from "express";
 import productController from "../controllers/product.controller.js";
-import upload from "../middlewares/uploade.middleware.js";
-import validate from "../middlewares/validate.middleware.js";
-import {
-  createProductSchema,
-  updateProductSchema,
-  createVariantSchema,
-  updateVariantSchema,
-} from "../validations/product.validation.js";
-import { requireAuth, checkRole } from "../auth/auth.middleware.js";
-import { parseVariantsMiddleware } from "../middlewares/parseVariants.js";
 
-const router = express.Router();
+import express from "express";
+import { requireAuth ,checkRole } from "../auth/auth.middleware.js"
+
+const router = express.Router()
+
 
 /**
  * ================================
  *  PUBLIC ROUTES
  * ================================
  */
+
 /**
  * @route GET /products
  * @desc Get all products with filters, pagination, search
@@ -39,11 +33,8 @@ router.get("/search", productController.searchProducts);
  */
 router.get("/:productId", productController.getProductById);
 
-// ================================
-//  Protected Routes
-// ================================
 
-router.use(requireAuth); // Require authentication for routes below
+//  router.use(requireAuth); // Require authentication for routes below
 
 /**
  * @route POST /products
@@ -126,5 +117,4 @@ router.post(
   upload.array("images"),
   productController.addImages
 );
-
 export default router ;
