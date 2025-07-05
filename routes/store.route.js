@@ -4,6 +4,7 @@ import validate from "../middlewares/validate.middleware.js";
 import { createStoreSchema, updateStoreSchema } from "../validations/store.validation.js";
 import upload from "../middlewares/uploade.middleware.js";
 import { requireAuth, checkRole } from "../auth/auth.middleware.js";
+import storeParserMiddleware from "../middlewares/store.parse.js";
 
 const router = express.Router();
 
@@ -42,7 +43,8 @@ router.use(requireAuth); // Require authentication for the routes below
 router.post(
   "/",
   checkRole(["owner", "admin"]),
-  upload.single("image"),
+ upload.single("logoUrl"),
+  storeParserMiddleware,
   validate(createStoreSchema),
   storeController.createStore
 );
@@ -55,7 +57,8 @@ router.post(
 router.patch(
   "/:storeId",
   checkRole(["owner", "admin"]),
-  upload.single("image"),
+ upload.single("logoUrl"),
+  storeParserMiddleware,
   validate(updateStoreSchema),
   storeController.updateStore
 );

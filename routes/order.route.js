@@ -21,7 +21,9 @@ router.post(
   orderController.createOrder
 );
 
-router.get("/", checkRole("user"), orderController.getUserOrders);
+router.get("/",
+  checkRole("user"),
+  orderController.getUserOrders);
 router.get("/:id", checkRole("user"), orderController.getMyOrderById);
 router.put("/:id/items", checkRole("user"), orderController.updateOrderItems);
 router.patch("/:id/cancel", checkRole("user"), orderController.cancelOrder);

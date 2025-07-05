@@ -13,10 +13,10 @@ import appErrors from "../utils/app.errors.js";
  * const query = buildStoreFilterQuery({ search: "handmade", status: "approved" });
  */
 const buildStoreFilterQuery = ({ search, status }) => {
-  const query = {};
-  if (search) query.name = { $regex: search, $options: "i" };
-  if (status) query.status = status;
-  return query;
+    const query = {};
+    if (search) query.name = { $regex: search, $options: "i" };
+    if (status) query.status = status;
+    return query;
 };
 
 /**

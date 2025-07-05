@@ -1,20 +1,7 @@
 import Joi from "joi";
 import { isValidObjectId } from "./custome.validation.js";
-/**
- * @schema updateVariantSchema
- * @description Schema for updating a product variant.
- * Allows partial updates (optional fields).
- */
-export const updateVariantSchema = Joi.object({
-  variantId: Joi.string()
-    .required()
-    .custom((value, helpers) => {
-      if (!isValidObjectId(value)) {
-        return helpers.error("any.invalid");
-      }
-      return value;
-    }, "ObjectId Validation"),
-  productId: Joi.string()
+const updateVariantOptionSchema = Joi.object({
+  _id: Joi.string()
     .optional()
     .custom((value, helpers) => {
       if (!isValidObjectId(value)) {
@@ -22,27 +9,70 @@ export const updateVariantSchema = Joi.object({
       }
       return value;
     }, "ObjectId Validation"),
-  name: Joi.string().optional(),
-  price: Joi.number().optional(),
-  stock: Joi.number().integer().min(0).optional(),
+  value: Joi.string().trim().optional().messages({
+    "string.base": "Option value must be a string",
+    "string.empty": "Option value cannot be empty",
+  }),
+  priceModifier: Joi.number().min(0).optional().messages({
+    "number.base": "Price modifier must be a number",
+    "number.min": "Price modifier cannot be negative",
+  }),
+  stock: Joi.number().integer().min(0).optional().messages({
+    "number.base": "Stock must be a number",
+    "number.integer": "Stock must be an integer",
+    "number.min": "Stock cannot be negative",
+  }),
+  sku: Joi.string().trim().optional().messages({
+    "string.base": "SKU must be a string",
+    "string.empty": "SKU cannot be empty",
+  }),
 });
-/**
- * @schema createVariantSchema
- * @description Schema for creating a product variant
- */
+
+export const updateVariantSchema = Joi.object({
+  name: Joi.string().trim().optional().messages({
+    "string.base": "Variant name must be a string",
+    "string.empty": "Variant name cannot be empty",
+  }),
+
+  options: Joi.array()
+    .items(updateVariantOptionSchema)
+    .optional()
+    .messages({
+      "array.base": "Options must be an array",
+    }),
+});
+
+const createVariantOptionSchema = Joi.object({
+  value: Joi.string().trim().required().messages({
+    "string.base": "Option value must be a string",
+    "string.empty": "Option value is required",
+  }),
+  priceModifier: Joi.number().min(0).default(0).messages({
+    "number.base": "Price modifier must be a number",
+    "number.min": "Price modifier cannot be negative",
+  }),
+  stock: Joi.number().integer().min(0).default(0).messages({
+    "number.base": "Stock must be a number",
+    "number.integer": "Stock must be an integer",
+    "number.min": "Stock cannot be negative",
+  }),
+  sku: Joi.string().trim().required().messages({
+    "string.base": "SKU must be a string",
+    "string.empty": "SKU is required",
+  }),
+});
+
 export const createVariantSchema = Joi.object({
-  productId: Joi.string()
-    .required()
-    .custom((value, helpers) => {
-      if (!isValidObjectId(value)) {
-        return helpers.error("any.invalid");
-      }
-      return value;
-    }, "ObjectId Validation"),
-  name: Joi.string().required(),
-  price: Joi.number().required(),
-  stock: Joi.number().integer().min(0).default(0),
+  name: Joi.string().trim().required().messages({
+    "string.base": "Variant name must be a string",
+    "string.empty": "Variant name is required",
+  }),
+  options: Joi.array().items(createVariantOptionSchema).min(1).required().messages({
+    "array.base": "Options must be an array",
+    "array.min": "At least one option is required",
+  }),
 });
+
 /**
  * Schema for creating a new product.
  * Validates store, name, description, basePrice, category, images, and variants.
@@ -142,6 +172,7 @@ export const createProductSchema = Joi.object({
  * };
  */
 export const updateProductSchema = Joi.object({
+    store: Joi.string().required(),
     name: Joi.string().optional(),
     description: Joi.string().optional(),
     basePrice: Joi.number().optional(),

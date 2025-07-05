@@ -9,6 +9,7 @@ import {
   updateVariantSchema,
 } from "../validations/product.validation.js";
 import { requireAuth, checkRole } from "../auth/auth.middleware.js";
+import { parseVariantsMiddleware } from "../middlewares/parseVariants.js";
 
 const router = express.Router();
 
@@ -17,7 +18,6 @@ const router = express.Router();
  *  PUBLIC ROUTES
  * ================================
  */
-
 /**
  * @route GET /products
  * @desc Get all products with filters, pagination, search
@@ -39,7 +39,6 @@ router.get("/search", productController.searchProducts);
  */
 router.get("/:productId", productController.getProductById);
 
-
 // ================================
 //  Protected Routes
 // ================================
@@ -52,12 +51,14 @@ router.use(requireAuth); // Require authentication for routes below
  * @access Private (seller, admin)
  */
 router.post(
-  "/",
-  checkRole(["seller", "admin"]),
-  upload.single("image"),
-  validate(createProductSchema),
-  productController.createProduct
+    "/",
+    // checkRole(["seller", "admin"]),
+    upload.single("image"),
+    parseVariantsMiddleware,
+    validate(createProductSchema),
+    productController.createProduct
 );
+
 
 /**
  * @route PATCH /products/:productId
@@ -65,24 +66,24 @@ router.post(
  * @access Private (seller, admin)
  */
 router.patch(
-  "/:productId",
-  checkRole(["seller", "admin"]),
-  upload.single("image"),
-  validate(updateProductSchema),
-  productController.updateProduct
-);
+    "/:productId",
+    // checkRole(["seller", "admin"]),
+    upload.single("image"),
+    parseVariantsMiddleware,
+    validate(updateProductSchema),
+    productController.updateProduct
+    );
 
-/**
- * @route DELETE /products/:productId
- * @desc Delete product by ID
- * @access Private (seller, admin)
- */
-router.delete(
-  "/:productId",
-  checkRole(["seller", "admin"]),
-  productController.deleteProduct
+    /**
+     * @route DELETE /products/:productId
+     * @desc Delete product by ID
+     * @access Private (seller, admin)
+     */
+    router.delete(
+    "/:productId",
+    // checkRole(["seller", "admin"]),
+    productController.deleteProduct
 );
-
 
 /**
  * @route POST /products/:productId/variants
@@ -90,8 +91,8 @@ router.delete(
  * @access Private (seller, admin)
  */
 router.post(
-  "/:productId/variants",
-  checkRole(["seller", "admin"]),
+  "/:productId/variant",
+//   checkRole(["seller", "admin"]),
   validate(createVariantSchema),
   productController.addVariant
 );
@@ -102,8 +103,8 @@ router.post(
  * @access Private (seller, admin)
  */
 router.patch(
-  "/:productId/variants/:variantId",
-  checkRole(["seller", "admin"]),
+  "/:productId/variant/:variantId",
+//   checkRole(["seller", "admin"]),
   validate(updateVariantSchema),
   productController.updateVariant
 );
@@ -114,21 +115,16 @@ router.patch(
  * @access Private (seller, admin)
  */
 router.delete(
-  "/:productId/variants/:variantId",
-  checkRole(["seller", "admin"]),
+  "/:productId/variant/:variantId",
+//   checkRole(["seller", "admin"]),
   productController.deleteVariant
 );
 
-/**
- * @route POST /products/:productId/images
- * @desc Upload multiple images to product
- * @access Private (seller, admin)
- */
 router.post(
   "/:productId/images",
-  checkRole(["seller", "admin"]),
+  // checkRole(["seller", "admin"]),
   upload.array("images"),
   productController.addImages
 );
 
-export default router;
+export default router ;

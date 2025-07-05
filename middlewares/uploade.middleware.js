@@ -1,14 +1,17 @@
 import multer from "multer";
 import path from "path";
+import fs from "fs";
 
-/**
- * Multer storage configuration:
- * - Saves uploaded files to "uploads/" directory.
- * - Filenames are prepended with a timestamp to ensure uniqueness.
- */
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, "uploads/");
+    const uploadPath = path.join(process.cwd(), "uploads");
+
+    // Ensure the uploads folder exists
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+
+    cb(null, uploadPath);
   },
   filename: function (req, file, cb) {
     const uniqueName = Date.now() + "-" + file.originalname;
@@ -16,19 +19,9 @@ const storage = multer.diskStorage({
   },
 });
 
-/**
- * File filter to allow only specific image types:
- * - Accepts: jpeg, jpg, png, gif files.
- * - Checks both MIME type and file extension.
- * - Rejects files with other types.
- *
- * @param {Express.Request} req - The express request object.
- * @param {Express.Multer.File} file - The file to be uploaded.
- * @param {Function} cb - Callback to indicate if file is accepted or rejected.
- */
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif"];
-  const extname = [".jpeg", ".jpg", ".png", ".gif"].includes(
+  const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif","image/jfif"];
+  const extname = [".jpeg", ".jpg", ".png", ".gif",".jfif"].includes(
     path.extname(file.originalname).toLowerCase()
   );
 
@@ -39,12 +32,6 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-/**
- * Multer middleware instance configured with:
- * - Storage settings (destination + filename)
- * - File filter for image types
- * - File size limit of 5 MB
- */
 const upload = multer({
   storage,
   fileFilter,

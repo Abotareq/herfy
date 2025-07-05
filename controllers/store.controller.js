@@ -3,7 +3,7 @@ import asyncWrapper from "../middlewares/async.wrapper.js";
 import StatusCodes from "../utils/status.codes.js"
 import JSEND_STATUS from "../utils/http.status.message.js"
 
-export const createStore = asyncWrapper(async (req, res) => {
+const createStore = asyncWrapper(async (req, res) => {
   const data = req.body;
 
   // Attach the authenticated user as the store owner
@@ -23,7 +23,7 @@ export const createStore = asyncWrapper(async (req, res) => {
   });
 });
 
-export const getAllStores = asyncWrapper(async (req, res) => {
+const getAllStores = asyncWrapper(async (req, res) => {
   const { page, limit, search, status } = req.query;
   const result = await storeService.getAllStores({
     page: parseInt(page),
@@ -43,7 +43,7 @@ export const getAllStores = asyncWrapper(async (req, res) => {
   });
 });
 
-export const getStoreById = asyncWrapper(async (req, res) => {
+const getStoreById = asyncWrapper(async (req, res) => {
   const { storeId } = req.params;
   const store = await storeService.getStoreById(storeId);
 
@@ -52,8 +52,7 @@ export const getStoreById = asyncWrapper(async (req, res) => {
     data: store,
   });
 });
-
-export const updateStore = asyncWrapper(async (req, res) => {
+const updateStore = asyncWrapper(async (req, res) => {
   const storeId = req.params.storeId;
   const data = req.body;
 
@@ -77,7 +76,7 @@ export const updateStore = asyncWrapper(async (req, res) => {
   });
 });
 
-export const deleteStore = asyncWrapper(async (req, res) => {
+const deleteStore = asyncWrapper(async (req, res) => {
   const { storeId } = req.params;
   await storeService.deleteStore(storeId);
 

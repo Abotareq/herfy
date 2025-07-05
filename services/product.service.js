@@ -1,6 +1,5 @@
 import Product from "../models/productModel.js";
 import appErrors from "../utils/app.errors.js";
-// import Review from "../models/review.model.js";
 
 /**
  * Returns the MongoDB sort object based on the given sort key.
@@ -25,10 +24,10 @@ const getSortOption = (sort) => {
     popularity_asc: { reviewCount: 1 },
     rating_desc: { averageRating: -1 },
     rating_asc: { averageRating: 1 },
-    latest: { createdAt: -1 },
+    newest: { createdAt: -1 },
     oldest: { createdAt: 1 },
-    price_asc: { price: 1 },
-    price_desc: { price: -1 },
+    price_asc: { basePrice: 1 },
+    price_desc: { basePrice: -1 },
   };
   
   return sortOptionsMap[sort] || { createdAt: -1 };
@@ -60,21 +59,7 @@ const buildProductFilterQuery = ({ category, search, color, size, minPrice, maxP
   }
 
   return query;
-};
-
-/**
- * Creates a new product.
- *
- * @param {object} data - Product data.
- * @param {object} [file] - Uploaded file (image).
- * @returns {Promise<object>} - The created product.
- */
-const createProduct = async (data, file) => {
-  if (file) data.image = file.filename; // adjust based on multer storage config
-  const product = new Product(data);
-  return await product.save();
-};
-
+}
 /**
  * Retrieves all products with filters, sorting, and pagination.
  *
@@ -118,10 +103,11 @@ const getAllProducts = async ({
   const query = buildProductFilterQuery({ category, search, color, size, minPrice, maxPrice });
 
   const sortOption = getSortOption(sort);
-
+  
   const totalProducts = await Product.countDocuments(query);
   const totalPages = Math.ceil(totalProducts / limit);
-
+  console.log('sort param:', sort);
+  console.log('sort option:', sortOption);
   const products = await Product.find(query)
     .sort(sortOption)
     .skip((page - 1) * limit)
@@ -139,19 +125,68 @@ const getAllProducts = async ({
  */
 const getProductById = async (id) => {
   const product = await Product.findById(id).lean();
-  const reviews = await Review.find({ product: productId }).populate("user", "name");
+  // const reviews = await Review.find({ product: productId }).populate("user", "name");
   if (!product) throw appErrors.notFound("Product not found");
-  return { ...product, reviews };
+  return { ...product };
 };
 
 /**
- * Updates a product by ID.
+ * Searches products with query, filters, and pagination.
  *
- * @param {string} id - Product ID.
- * @param {object} data - Update data.
- * @returns {Promise<object>} - Updated product.
- * @throws {AppError} - Throws if not found.
+ * @param {object} options - Search options.
+ * @param {string} options.query - Search string.
+ * @param {number} [options.page=1] - Current page.
+ * @param {number} [options.limit=10] - Items per page.
+ * @param {string} [options.category] - Category filter.
+ * @param {string} [options.color] - Color filter.
+ * @param {string} [options.size] - Size filter.
+ * @param {number} [options.minPrice] - Minimum price.
+ * @param {number} [options.maxPrice] - Maximum price.
+ * @returns {Promise<object>} - Matching products with pagination info.
  */
+
+const searchProducts = async ({
+  query,
+  page = 1,
+  limit = 10,
+  category,
+  color,
+  size,
+  minPrice,
+  maxPrice,
+  sort, // pass sort here
+}) => {
+  const filterQuery = buildProductFilterQuery({ category, search: query, color, size, minPrice, maxPrice });
+
+  const totalProducts = await Product.countDocuments(filterQuery);
+  const totalPages = Math.ceil(totalProducts / limit);
+
+  const sortOption = getSortOption(sort); // use your method here
+
+  const products = await Product.find(filterQuery)
+    .sort(sortOption)
+    .skip((page - 1) * limit)
+    .limit(limit);
+
+  return { products, totalProducts, totalPages, currentPage: page, limit };
+};
+
+
+/**
+ * Creates a new product.
+ *
+ * @param {object} data - Product data.
+ * @param {object} [file] - Uploaded file (image).
+ * @returns {Promise<object>} - The created product.
+ */
+
+const createProduct = async (data, file) => {
+  if (file) data.images = file.filename; // adjust based on multer storage config
+  const product = new Product(data);
+  return await product.save();
+};
+
+
 const updateProduct = async (productId, updateData, file) => {
   const product = await Product.findById(productId);
   if (!product) {
@@ -198,11 +233,20 @@ const addVariant = async (productId, variantData) => {
   const product = await Product.findById(productId);
   if (!product) throw appErrors.notFound("Product not found");
 
-  product.variants.push(variantData);
+  const existingVariant = product.variants.find(
+    (v) => v.name.toLowerCase() === variantData.name.toLowerCase()
+  );
+
+  if (existingVariant) {
+    // Merge options
+    existingVariant.options = existingVariant.options.concat(variantData.options);
+  } else {
+    product.variants.push(variantData);
+  }
+
   await product.save();
   return product;
 };
-
 /**
  * Updates a variant of a product.
  *
@@ -239,7 +283,11 @@ const deleteVariant = async (productId, variantId) => {
   const variant = product.variants.id(variantId);
   if (!variant) throw appErrors.notFound("Variant not found");
 
-  variant.remove();
+  console.log(typeof variant);  // Should be 'object'
+  console.log(variant instanceof mongoose.Document);  // Should be true
+
+  // Remove the variant from the product
+  product.variants.pull(variantId);
   await product.save();
 };
 
@@ -261,43 +309,15 @@ const addImages = async (productId, files) => {
   return product;
 };
 
-/**
- * Searches products with query, filters, and pagination.
- *
- * @param {object} options - Search options.
- * @param {string} options.query - Search string.
- * @param {number} [options.page=1] - Current page.
- * @param {number} [options.limit=10] - Items per page.
- * @param {string} [options.category] - Category filter.
- * @param {string} [options.color] - Color filter.
- * @param {string} [options.size] - Size filter.
- * @param {number} [options.minPrice] - Minimum price.
- * @param {number} [options.maxPrice] - Maximum price.
- * @returns {Promise<object>} - Matching products with pagination info.
- */
-const searchProducts = async ({ query, page = 1, limit = 10, category, color, size, minPrice, maxPrice }) => {
-  const filterQuery = buildProductFilterQuery({ category, search: query, color, size, minPrice, maxPrice });
-
-  const totalProducts = await Product.countDocuments(filterQuery);
-  const totalPages = Math.ceil(totalProducts / limit);
-
-  const products = await Product.find(filterQuery)
-    .skip((page - 1) * limit)
-    .limit(limit);
-
-  return { products, totalProducts, totalPages, currentPage: page, limit };
-};
-
-export default {
-  createProduct,
-  getAllProducts,
-  getProductById,
-  updateProduct,
-  deleteProduct,
-  addVariant,
-  updateVariant,
-  deleteVariant,
-  addImages,
-  buildProductFilterQuery,
-  searchProducts,
-};
+export default{
+    createProduct,
+    getAllProducts,
+    getProductById,
+    searchProducts,
+    updateProduct,
+    deleteProduct,
+    addVariant,
+    deleteVariant,
+    updateVariant,
+    addImages
+}
