@@ -1,7 +1,10 @@
+
+
 import asyncWrapper from "../middlewares/async.wrapper.js";
-import productService from "../services/product.service.js";
+import productService from "../services/product.service.js"
 import JSEND_STATUS from "../utils/http.status.message.js";
 import StatusCodes from "../utils/status.codes.js";
+import AppErrors from "../utils/app.errors.js";
 
 /**
  * Get all products with optional filters, pagination, and search.
@@ -40,7 +43,7 @@ const createProduct = asyncWrapper(async (req, res,next) => {
 
   try {
     console.log("create")
-    // 🔑 Handle image upload path if uploaded
+    //  Handle image upload path if uploaded
     if (req.file) {
       req.body.images = [req.file.path];
     }
