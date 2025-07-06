@@ -1,3 +1,4 @@
+
 import express from "express";
 import productController from "../controllers/product.controller.js";
 import validate from "../middlewares/validate.middleware.js";
@@ -112,3 +113,4 @@ router.route("/:productId/images")
   );
 
 export default router;
+

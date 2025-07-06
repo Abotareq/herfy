@@ -14,7 +14,7 @@ export const getAllCategoty = async(req, res) => {
     if(!allCategories){
         res.status(StatusCodes.UNAUTHORIZED).json({status: httpStatus.ERROR, data:{message: "Unothoriaed"}})
     }
-    res.status(StatusCodes.ACCEPTED).json({status: httpStatus.SUCCESS, data: {allCategories}})
+    res.status(StatusCodes.OK).json({status: httpStatus.SUCCESS, data: {allCategories}})
     } catch (err) {
         res.status(StatusCodes.UNAUTHORIZED).json({data: {status: err, message: "unothorized user"}})   
     }
@@ -22,13 +22,12 @@ export const getAllCategoty = async(req, res) => {
 // add category
 export const addNewCategory = async (req, res) => {
     try {
-        const {name} = req.body;
+        const {name, image} = req.body;
         const newCategory = await Category.create({
-            name
-            //parent
-            // handle image from multer
+            name,
+            image 
         })
-        res.status(StatusCodes.ACCEPTED).json({status: httpStatus.SUCCESS, data:{newCategory}})
+        res.status(StatusCodes.OK).json({status: httpStatus.SUCCESS, data:{newCategory}})
     } catch (error) {
         res.status(StatusCodes.UNAUTHORIZED).json({status: error,data: {message: "Failed to add new Category"}})
     }
@@ -38,10 +37,10 @@ export const getCategotyById = async(req, res) => {
     try {
         const catId = req.params.id
     const category = await Category.findById(catId);
-    if(category){
+    if(!category){
         res.status(StatusCodes.NOT_FOUND).json({status: httpStatus.ERROR, data: {message: 'Not match Category'}});
     }
-    res.status(StatusCodes.ACCEPTED).json({status: httpStatus.SUCCESS, data:{category}})
+    res.status(StatusCodes.OK).json({status: httpStatus.SUCCESS, data:{category}})
     } catch (error) {
         res.status(StatusCodes.UNAUTHORIZED).json({data: {status: error, message: 'failed to get category'}})
     }
