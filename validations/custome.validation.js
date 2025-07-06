@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-
 /**
  * Check if the value is a valid MongoDB ObjectId
  * @param {string} value - The value to validate

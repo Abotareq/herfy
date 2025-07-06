@@ -1,5 +1,5 @@
 import Joi from "joi";
-import mongoose from "mongoose";
+import { isValidObjectId } from "./custome.validation.js";
 
 /**
 ✅ Uses custom ObjectId validator to ensure valid Mongo IDs.
@@ -29,13 +29,6 @@ import mongoose from "mongoose";
  * const result = schema.validate(data);
  * if (result.error) console.error(result.error);
  */
-const objectId = (value, helpers) => {
-    if (!mongoose.Types.ObjectId.isValid(value)) {
-        return helpers.error("any.invalid");
-    }
-    return value;
-};
-
 /**
  * Schema for creating a new store.
  * Validates owner, name, description, logoUrl, status, location, and policies.
@@ -78,7 +71,14 @@ const objectId = (value, helpers) => {
 
  */
 export const createStoreSchema = Joi.object({
-    owner: Joi.string().custom(objectId).required(),
+    owner: Joi.string()
+        .optional()
+        .custom((value, helpers) => {
+        if (!isValidObjectId(value)) {
+            return helpers.error("any.invalid");
+        }
+        return value;
+        }, "ObjectId Validation").optional(),
     name: Joi.string().trim().min(3).max(100).required(),
     description: Joi.string().trim().min(10).required(),
     logoUrl: Joi.string().uri().optional(),
@@ -131,7 +131,12 @@ export const createStoreSchema = Joi.object({
   };
  */
 export const updateStoreSchema = Joi.object({
-    owner: Joi.string().custom(objectId).optional(),
+    owner: Joi.string().custom((value, helpers) => {
+        if (!isValidObjectId(value)) {
+            return helpers.error("any.invalid");
+        }
+        return value;
+        }, "ObjectId Validation").optional(),
     name: Joi.string().trim().min(3).max(100).optional(),
     description: Joi.string().trim().min(10).optional(),
     logoUrl: Joi.string().uri().optional(),

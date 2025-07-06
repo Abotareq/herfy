@@ -31,6 +31,7 @@ const cartSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Product',
       required: true,
+      index: true
     },
     quantity: {
       type: Number,
@@ -38,7 +39,6 @@ const cartSchema = new mongoose.Schema({
       min: 1,
       default: 1,
     },
-    // Optional: store variant details if your product has them
     variant: {
       type: Map,
       of: String, // e.g., { "Color": "Red", "Size": "Large" }
@@ -46,7 +46,22 @@ const cartSchema = new mongoose.Schema({
   }],
   coupon: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Coupon' // Assumes you might create a Coupon model later
+    ref: 'Coupon'
+  },
+  total: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  discount: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  totalAfterDiscount: {
+    type: Number,
+    default: 0,
+    min: 0
   }
 }, {
   timestamps: true
