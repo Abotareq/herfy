@@ -111,3 +111,13 @@ export const addItemSchema = Joi.object({
   }, "ObjectId Validation").required(),
   quantity: Joi.number().integer().min(1).required(),
 });
+
+export const applyCouponSchema = Joi.object({
+  code: Joi.string()
+    .trim()
+    .required()
+    .messages({
+      "any.required": "Coupon code is required",
+      "string.empty": "Coupon code cannot be empty",
+    }),
+});
