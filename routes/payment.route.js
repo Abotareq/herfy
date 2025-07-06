@@ -1,23 +1,68 @@
 import express from "express";
 import paymentController from "../controllers/payment.controller.js";
 import validate from "../middlewares/validate.middleware.js";
-import {
-  createPaymentSchema,
-  updatePaymentStatusSchema,
-} from "../validations/payment.validation.js";
 import { requireAuth, checkRole } from "../auth/auth.middleware.js";
+import { createPaymentSchema, updatePaymentStatusSchema } from "../validations/payment.validation.js";
 
 const router = express.Router();
 
-// ================================
-// 🔐 Require authentication for all routes
-// ================================
-
+/**
+ * ================================
+ *  Require authentication for all routes
+ * ================================
+ */
 router.use(requireAuth);
 
 /**
  * ================================
- * 🔹 ADMIN ROUTES
+ *  USER ROUTES
+ * ================================
+ */
+
+/**
+ * @route POST /payments
+ * @desc Create payment (User)
+ * @access Private (User)
+ */
+router
+  .route("/")
+  .post(
+    checkRole(["user"]),
+    validate(createPaymentSchema),
+    paymentController.createPayment
+  );
+
+/**
+ * @route GET /payments/user
+ * @desc Get payments by user
+ * @access Private (User)
+ */
+router.get(
+  "/user",
+  checkRole(["user"]),
+  paymentController.getPaymentsByUser
+);
+
+/**
+ * ================================
+ * SELLER ROUTES
+ * ================================
+ */
+
+/**
+ * @route GET /payments/seller
+ * @desc Get payments by seller
+ * @access Private (Seller)
+ */
+router.get(
+  "/seller",
+  checkRole(["seller"]),
+  paymentController.getPaymentsBySeller
+);
+
+/**
+ * ================================
+ * ADMIN ROUTES
  * ================================
  */
 
@@ -45,6 +90,12 @@ router.patch(
 );
 
 /**
+ * ================================
+ * COMMON ROUTES (Admin, Seller, User)
+ * ================================
+ */
+
+/**
  * @route GET /payments/:id
  * @desc Get payment by ID (Admin, Seller, User)
  * @access Private (Admin, Seller, User)
@@ -53,50 +104,6 @@ router.get(
   "/:id",
   checkRole(["admin", "seller", "user"]),
   paymentController.getPaymentById
-);
-
-
-// ================================
-// 🔹 SELLER ROUTES
-// ================================
-
-/**
- * @route GET /payments/seller
- * @desc Get payments by seller
- * @access Private (Seller)
- */
-router.get(
-  "/seller",
-  checkRole(["seller"]),
-  paymentController.getPaymentsBySeller
-);
-
-
-// ================================
-// 🔹 USER ROUTES
-// ================================
-
-/**
- * @route POST /payments
- * @desc Create payment (User)
- * @access Private (User)
- */
-router.post(
-  "/",
-  checkRole(["user"]),
-  validate(createPaymentSchema),
-  paymentController.createPayment
-);
-
-/**
- * @route GET /payments/user
- * @desc Get payments by user
- * @access Private (User)
- */
-router.get(
-  "/user",
-  checkRole(["user"]),
-  paymentController.getPaymentsByUser
 );
 
 export default router;
