@@ -24,7 +24,9 @@ const categorySchema = new mongoose.Schema({
     ref: 'Category',
     default: null,
   },
-  image: String,
+  image: {
+    type: String,
+    }
 }, {
   timestamps: true,
 });
