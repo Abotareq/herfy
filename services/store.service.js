@@ -1,5 +1,7 @@
+
 import Store from "../models/storeModel.js";
-import appErrors from "../utils/app.errors.js";
+import AppErrors from "../utils/app.errors.js";
+
 
 /**
  * Builds a MongoDB query object for filtering stores.
@@ -13,10 +15,10 @@ import appErrors from "../utils/app.errors.js";
  * const query = buildStoreFilterQuery({ search: "handmade", status: "approved" });
  */
 const buildStoreFilterQuery = ({ search, status }) => {
-  const query = {};
-  if (search) query.name = { $regex: search, $options: "i" };
-  if (status) query.status = status;
-  return query;
+    const query = {};
+    if (search) query.name = { $regex: search, $options: "i" };
+    if (status) query.status = status;
+    return query;
 };
 
 /**
@@ -26,8 +28,8 @@ const buildStoreFilterQuery = ({ search, status }) => {
  * @returns {Promise<object>} - The created store document.
  */
 const createStore = async (data) => {
-  const store = new Store(data);
-  return await store.save();
+    const store = new Store(data);
+    return await store.save();
 };
 
 /**
@@ -60,7 +62,7 @@ const getAllStores = async ({ page = 1, limit = 10, search, status }) => {
  */
 const getStoreById = async (id) => {
   const store = await Store.findById(id);
-  if (!store) throw appErrors.notFound("Store not found");
+  if (!store) throw AppErrors.notFound("Store not found");
   return store;
 };
 
@@ -90,10 +92,10 @@ const deleteStore = async (id) => {
   if (!result) throw appErrors.notFound("Store not found");
 };
 
-export default {
-  createStore,
-  getAllStores,
-  getStoreById,
-  updateStore,
-  deleteStore,
-};
+export default{
+    createStore,
+    getAllStores,
+    getStoreById,
+    deleteStore,
+    updateStore
+}

@@ -1,47 +1,123 @@
+/**
+ * @fileoverview Joi validation schemas for Cart operations:
+ * - Create or update cart
+ * - Update cart items
+ * - Add item to cart
+ */
+
 import Joi from "joi";
-import { isValidObjectId } from "./custome.validation.js"
+import { isValidObjectId } from "./custome.validation.js";
 
 /**
- * Schema for creating or updating a cart.
+ * @typedef {Object} CartItem
+ * @property {string} product - MongoDB ObjectId string of the product.
+ * @property {number} quantity - Quantity of the product (integer, min: 1).
+ */
+
+/**
+ * Validation schema for creating or updating a cart.
+ *
+ * @type {Joi.ObjectSchema}
+ *
+ * @example
+ * const data = {
+ *   items: [
+ *     { product: "60c72b...", quantity: 2 }
+ *   ],
+ *   coupon: "60c72b..."
+ * };
+ * const { error, value } = createOrUpdateCartSchema.validate(data);
  */
 export const createOrUpdateCartSchema = Joi.object({
-  user: Joi.string().custom(isValidObjectId, "ObjectId Validation").required().description("User ID"),
-  items: Joi.array().items(
-    Joi.object({
-      product: Joi.string().custom(isValidObjectId, "ObjectId Validation").required().description("Product ID"),
-      quantity: Joi.number().min(1).default(1).required().description("Quantity of the product"),
-      variant: Joi.object().pattern(Joi.string(), Joi.string()).optional().description("Product variant options"),
-    })
-  ).required().description("Array of cart items"),
-  coupon: Joi.string().custom(isValidObjectId, "ObjectId Validation").optional().description("Coupon ID applied to cart"),
+  items: Joi.array()
+    .items(
+      Joi.object({
+        product: Joi.string().custom((value, helpers) => {
+          if (!isValidObjectId(value)) {
+            return helpers.error("any.invalid");
+          }
+          return value;
+        }, "ObjectId Validation").required(),
+        quantity: Joi.number().integer().min(1).required(),
+      })
+    )
+    .optional(),
+  coupon: Joi.string()
+    .custom((value, helpers) => {
+      if (!isValidObjectId(value)) {
+        return helpers.error("any.invalid");
+      }
+      return value;
+    }, "ObjectId Validation")
+    .optional()
+    .allow(null, ""),
 });
 
 /**
- * Schema for updating a cart.
+ * Validation schema for updating cart items and coupon.
+ *
+ * @type {Joi.ObjectSchema}
+ *
+ * @example
+ * const data = {
+ *   items: [
+ *     { product: "60c72b...", quantity: 3 }
+ *   ],
+ *   coupon: "60c72b..."
+ * };
+ * const { error, value } = updateCartSchema.validate(data);
  */
 export const updateCartSchema = Joi.object({
   items: Joi.array().items(
     Joi.object({
-      product: Joi.string().custom(isValidObjectId, "ObjectId Validation").required().description("Product ID"),
-      quantity: Joi.number().min(1).default(1).required().description("Quantity of the product"),
-      variant: Joi.object().pattern(Joi.string(), Joi.string()).optional().description("Product variant options"),
+      product: Joi.string().custom((value, helpers) => {
+        if (!isValidObjectId(value)) {
+          return helpers.error("any.invalid");
+        }
+        return value;
+      }, "ObjectId Validation").required(),
+      quantity: Joi.number().integer().min(1).required(),
     })
-  ).optional().description("Array of cart items to update"),
-  coupon: Joi.string().custom(isValidObjectId, "ObjectId Validation").optional().description("Coupon ID to update"),
+  ),
+  coupon: Joi.string()
+    .custom((value, helpers) => {
+      if (!isValidObjectId(value)) {
+        return helpers.error("any.invalid");
+      }
+      return value;
+    }, "ObjectId Validation")
+    .optional()
+    .allow(null, ""),
 });
 
 /**
- * Schema for adding an item to cart.
+ * Validation schema for adding a single item to the cart.
+ *
+ * @type {Joi.ObjectSchema}
+ *
+ * @example
+ * const data = {
+ *   productId: "60c72b...",
+ *   quantity: 1
+ * };
+ * const { error, value } = addItemSchema.validate(data);
  */
 export const addItemSchema = Joi.object({
-  product: Joi.string().custom(isValidObjectId, "ObjectId Validation").required().description("Product ID"),
-  quantity: Joi.number().min(1).default(1).required().description("Quantity of the product"),
-  variant: Joi.object().pattern(Joi.string(), Joi.string()).optional().description("Product variant options"),
+  productId: Joi.string().custom((value, helpers) => {
+    if (!isValidObjectId(value)) {
+      return helpers.error("any.invalid");
+    }
+    return value;
+  }, "ObjectId Validation").required(),
+  quantity: Joi.number().integer().min(1).required(),
 });
 
-/**
- * Schema for removing an item from cart.
- */
-export const removeItemSchema = Joi.object({
-  productId: Joi.string().custom(isValidObjectId, "ObjectId Validation").required().description("Product ID to remove"),
+export const applyCouponSchema = Joi.object({
+  code: Joi.string()
+    .trim()
+    .required()
+    .messages({
+      "any.required": "Coupon code is required",
+      "string.empty": "Coupon code cannot be empty",
+    }),
 });
