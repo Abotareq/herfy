@@ -2,65 +2,42 @@
 import Payment from '../models/paymentModel.js';
 import Order from '../models/orderModel.js';
 import appErrors from '../utils/app.errors.js';
-import StatusCodes from '../utils/status.codes.js';
 import Store from '../models/storeModel.js';
 // import sendEmail from '../utils/sendEmail.js';
 
 // const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 /**
- * @desc Create a payment and link it to an order
- * @param {Object} paymentData
+ * Create a payment and link it to an order
  */
 const createPayment = async (paymentData) => {
-  // 1. Check if a payment already exists for this order
   const existingPayment = await Payment.findOne({ order: paymentData.order });
   if (existingPayment) {
-    throw appErrors.badRequest("Payment already exists for this order", StatusCodes.BAD_REQUEST);
+    throw appErrors.badRequest("Payment already exists for this order");
   }
 
-  // 2. Check if the order exists
   const order = await Order.findById(paymentData.order);
   if (!order) {
-    throw appErrors.notFound("Order not found", StatusCodes.NOT_FOUND);
+    throw appErrors.notFound("Order not found");
   }
 
   try {
-    // 3. Create payment intent with Stripe
-    // const stripePaymentIntent = await stripe.paymentIntents.create({
-    //   amount: order.totalAmount * 100, // Stripe uses cents
-    //   currency: 'usd',
-    //   payment_method_types: ['card'],
-    //   metadata: { orderId: order._id.toString() },
-    // });
-
-    // 4. Create payment document in DB with status completed
     const payment = await Payment.create({
       order: order._id,
       user: paymentData.user,
       amount: order.totalAmount,
       paymentMethod: paymentData.paymentMethod || 'credit_card',
-      // transactionId: stripePaymentIntent.id,
       provider: 'Stripe',
       status: 'completed',
     });
 
-    // 5. Update order status to paid
     order.status = 'paid';
     order.paidAt = new Date();
     await order.save();
 
-    // 6. Send notification email to user
-    // await sendEmail({
-    //   to: order.user.email,
-    //   subject: 'Payment Successful',
-    //   text: `Your payment for order ${order._id} was successful.`,
-    // });
-
     return payment;
 
   } catch (error) {
-    // 7. If payment fails, create payment document with status failed
     const failedPayment = await Payment.create({
       order: order._id,
       user: paymentData.user,
@@ -70,44 +47,34 @@ const createPayment = async (paymentData) => {
       error: error.message,
     });
 
-    // 8. Send failure notification email
-    // await sendEmail({
-    //   to: order.user.email,
-    //   subject: 'Payment Failed',
-    //   text: `Your payment for order ${order._id} failed. Reason: ${error.message}`,
-    // });
-
-    // 9. Throw error to be handled by controller
-    throw appErrors.internal(error.message, StatusCodes.INTERNAL_SERVER_ERROR);
+    throw appErrors.internal(error.message);
   }
 };
 
 /**
- * @desc Get payment by ID
- * @param {String} paymentId
+ * Get payment by ID
  */
 const getPaymentById = async (paymentId) => {
-  const payment = await Payment.findById(paymentId);
+  const payment = await Payment.findById(paymentId)
+                               .populate('order')
+                               .populate('user');
   if (!payment) {
-    throw appErrors.notFound("Payment not found", StatusCodes.NOT_FOUND);
+    throw appErrors.notFound("Payment not found");
   }
   return payment;
 };
 
 /**
- * @desc Update payment status
- * @param {String} paymentId
- * @param {Object} data
+ * Update payment status
  */
 const updatePaymentStatus = async (paymentId, data) => {
-  const payment = await Payment.findById(paymentId);
+  const payment = await Payment.findById(paymentId).populate('order');
   if (!payment) {
-    throw appErrors.notFound("Payment not found", StatusCodes.NOT_FOUND);
+    throw appErrors.notFound("Payment not found");
   }
 
-  // Prevent changing status from completed to pending
   if (payment.status === "completed" && data.status === "pending") {
-    throw appErrors.badRequest("Cannot change payment from completed to pending", StatusCodes.BAD_REQUEST);
+    throw appErrors.badRequest("Cannot change payment from completed to pending");
   }
 
   payment.status = data.status;
@@ -117,63 +84,58 @@ const updatePaymentStatus = async (paymentId, data) => {
 
   const order = await Order.findById(payment.order);
   if (!order) {
-    throw appErrors.notFound("Order not found", StatusCodes.NOT_FOUND);
+    throw appErrors.notFound("Order not found");
   }
 
-  // Update order status based on payment status
   if (payment.status === "completed") {
     order.status = "paid";
     order.paidAt = new Date();
   } else if (payment.status === "refunded") {
     order.status = "refunded";
-    // order.refundedAt = new Date(); // if applicable
   } else if (payment.status === "failed") {
     order.status = "payment_failed";
   }
 
   await order.save();
 
-  // Send notification if needed
-
   return payment;
 };
+
 /**
- * @desc Get all payments (admin)
+ * Get all payments (Admin only)
  */
 const getAllPayments = async () => {
   return await Payment.find()
-            // .populate("order user");
+                      .populate('order')
+                      .populate('user');
 };
 
 /**
- * @desc Get payments by sellerId
- * @param {String} sellerId
+ * Get payments by seller ID
  */
 const getPaymentsBySeller = async (sellerId) => {
-console.log("Seller ID received:", sellerId);
- // 1. Fetch all stores owned by this seller
+  console.log("Seller ID received:", sellerId);
+
   const stores = await Store.find({ owner: sellerId }).select('_id');
   const storeIds = stores.map(s => s._id);
 
-  // 2. Fetch all orders that include items from these stores
   const orders = await Order.find({ "orderItems.store": { $in: storeIds } }).select('_id');
   const orderIds = orders.map(order => order._id);
 
-  // 3. Fetch payments for these orders
   const payments = await Payment.find({ order: { $in: orderIds } })
-                                // .populate('order')
-                                // .populate('user');
+                                .populate('order')
+                                .populate('user');
 
   return payments;
 };
 
 /**
- * @desc Get payments by userId
- * @param {String} userId
+ * Get payments by user ID
  */
 const getPaymentsByUser = async (userId) => {
   return await Payment.find({ user: userId })
-                        // .populate("order user");
+                      .populate('order')
+                      .populate('user');
 };
 
 export default {
