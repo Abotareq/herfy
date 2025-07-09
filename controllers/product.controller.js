@@ -1,21 +1,10 @@
+
+
 import asyncWrapper from "../middlewares/async.wrapper.js";
-import productService from "../services/product.service.js";
+import productService from "../services/product.service.js"
 import JSEND_STATUS from "../utils/http.status.message.js";
 import StatusCodes from "../utils/status.codes.js";
-
-/**
- * Create a new product.
- * @route POST /api/v1/products
- * @access Private (requires authorization)
- * @param {Object} req.body - Product data.
- * @param {File} req.file - Optional product image.
- * @returns {Object} Created product.
- */
-const createProduct = asyncWrapper(async (req, res) => {
-  // TODO: Add validation before service call
-  const product = await productService.createProduct(req.body, req.file);
-  res.status(StatusCodes.CREATED).json({ status: JSEND_STATUS.SUCCESS, data: product });
-});
+import AppErrors from "../utils/app.errors.js";
 
 /**
  * Get all products with optional filters, pagination, and search.
@@ -31,7 +20,7 @@ const getAllProducts = asyncWrapper(async (req, res) => {
 
 /**
  * Get a product by its ID.
- * @route GET /api/v1/products/:productId
+ * @route GET /api/products/:productId
  * @access Public
  * @param {string} req.params.productId - Product ID.
  * @returns {Object} Product details.
@@ -40,6 +29,53 @@ const getProductById = asyncWrapper(async (req, res) => {
   const product = await productService.getProductById(req.params.productId);
   res.status(StatusCodes.OK).json({ status: JSEND_STATUS.SUCCESS, data: product });
 });
+
+/**
+ * Create a new product.
+ * @route POST /api/products
+ * @access Private (requires authorization)
+ * @param {Object} req.body - Product data.
+ * @param {File} req.file - Optional product image.
+ * @returns {Object} Created product.
+ */
+const createProduct = asyncWrapper(async (req, res,next) => {
+  // TODO: Add validation before service call
+
+  try {
+    console.log("create")
+    //  Handle image upload path if uploaded
+    if (req.file) {
+      req.body.images = [req.file.path];
+    }
+    req.body.basePrice = Number(req.body.basePrice);
+    const createdProduct = await productService.createProduct(req.body);
+    res.status(201).json({ status: 'success', data: createdProduct });
+  } catch (err) {
+    next(AppErrors.badRequest(err.message));
+  }
+});
+
+/**
+ * Search products by query with filters and pagination.
+ * @route GET /api/products/search
+ * @access Public
+ * @param {Object} req.query - Search query and filters.
+ * @returns {Object} Products matching search with pagination.
+ */
+const searchProducts = asyncWrapper(async (req, res) => {
+  const data = await productService.searchProducts({
+    query: req.query.q,
+    page: req.query.page,
+    limit: req.query.limit,
+    category: req.query.category,
+    color: req.query.color,
+    size: req.query.size,
+    minPrice: req.query.minPrice,
+    maxPrice: req.query.maxPrice
+  });
+  res.status(StatusCodes.OK).json({ status: JSEND_STATUS.SUCCESS, ...data });
+});
+
 
 /**
  * Update a product by its ID.
@@ -108,6 +144,7 @@ const deleteVariant = asyncWrapper(async (req, res) => {
   res.status(StatusCodes.NO_CONTENT).send();
 });
 
+
 /**
  * Add multiple images to a product.
  * @route POST /api/v1/products/:productId/images
@@ -121,45 +158,15 @@ const addImages = asyncWrapper(async (req, res) => {
   res.status(StatusCodes.CREATED).json({ status: JSEND_STATUS.SUCCESS, data: product });
 });
 
-/**
- * Search products by query with filters and pagination.
- * @route GET /api/v1/products/search
- * @access Public
- * @param {Object} req.query - Search query and filters.
- * @returns {Object} Products matching search with pagination.
- */
-const searchProducts = asyncWrapper(async (req, res) => {
-  const data = await productService.searchProducts({
-    query: req.query.q,
-    page: req.query.page,
-    limit: req.query.limit,
-    category: req.query.category,
-    color: req.query.color,
-    size: req.query.size,
-    minPrice: req.query.minPrice,
-    maxPrice: req.query.maxPrice
-  });
-  res.status(StatusCodes.OK).json({ status: JSEND_STATUS.SUCCESS, ...data });
-});
-
-/**
- * Add a review to a product.
- * @route POST /api/v1/products/:productId/reviews
- * @access Private (requires authentication)
- * @param {string} req.params.productId - Product ID.
- * @param {Object} req.body - Review data (rating, comment).
- * @returns {Object} Created review and updated product ratings.
- */
-
-export default {
-  createProduct,
-  getAllProducts,
-  getProductById,
-  updateProduct,
-  deleteProduct,
-  addVariant,
-  updateVariant,
-  deleteVariant,
-  addImages,
-  searchProducts
-};
+export default{
+    createProduct,
+    getAllProducts,
+    getProductById,
+    searchProducts,
+    deleteProduct,
+    updateProduct,
+    addVariant,
+    deleteVariant,
+    updateVariant,
+    addImages
+}

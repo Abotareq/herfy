@@ -4,15 +4,17 @@
 import express from "express";
 import upload from "../middlewares/uploade.middleware.js";
 import validate from "../middlewares/validate.middleware.js";
-import {
-  createProductSchema,
-  updateProductSchema,
-  createVariantSchema,
-  updateVariantSchema,
-} from "../validations/product.validation.js";
+import upload from "../middlewares/uploade.middleware.js";
 import { requireAuth, checkRole } from "../auth/auth.middleware.js";
+import { 
+  createProductSchema, 
+  createVariantSchema, 
+  updateProductSchema, 
+  updateVariantSchema 
+} from "../validations/product.validation.js";
+import { parseVariantsMiddleware } from "../middlewares/parseVariants.js";
 
-  const router = express.Router();
+const router = express.Router();
 
   /*
   | **Method** | **Endpoint**                                   | **Description**                                         | **Body / Params Example**                                                                                                                                                         | **Response**                              |
@@ -127,96 +129,76 @@ router.get("/search", productController.searchProducts);
  */
 router.get("/:productId", productController.getProductById);
 
-
-// ================================
-//  Protected Routes
-// ================================
-
-router.use(requireAuth); // Require authentication for routes below
-
 /**
- * @route POST /products
- * @desc Create new product (image upload)
- * @access Private (seller, admin)
+ * ================================
+ * 🔐 PRIVATE ROUTES (Seller, Admin)
+ * ================================
  */
-router.post(
-  "/",
-  checkRole(["seller", "admin"]),
-  upload.single("image"),
-  validate(createProductSchema),
-  productController.createProduct
-);
+
+// Global authentication & authorization for all routes below
+router.use(requireAuth);
+router.use(checkRole(["seller", "admin"]));
 
 /**
- * @route PATCH /products/:productId
- * @desc Update product by ID
- * @access Private (seller, admin)
+ * @route /products
+ * @desc Create product
+ * @access Seller, Admin
  */
-router.patch(
-  "/:productId",
-  checkRole(["seller", "admin"]),
-  upload.single("image"),
-  validate(updateProductSchema),
-  productController.updateProduct
-);
+router.route("/")
+  .post(
+    upload.single("image"),
+    parseVariantsMiddleware,
+    validate(createProductSchema),
+    productController.createProduct
+  );
 
 /**
- * @route DELETE /products/:productId
- * @desc Delete product by ID
- * @access Private (seller, admin)
+ * @route /products/:productId
+ * @desc Update or delete product by ID
+ * @access Seller, Admin
  */
-router.delete(
-  "/:productId",
-  checkRole(["seller", "admin"]),
-  productController.deleteProduct
-);
-
+router.route("/:productId")
+  .patch(
+    upload.single("image"),
+    parseVariantsMiddleware,
+    validate(updateProductSchema),
+    productController.updateProduct
+  )
+  .delete(productController.deleteProduct);
 
 /**
- * @route POST /products/:productId/variants
+ * @route /products/:productId/variant
  * @desc Add variant to product
- * @access Private (seller, admin)
+ * @access Seller, Admin
  */
-router.post(
-  "/:productId/variants",
-  checkRole(["seller", "admin"]),
-  validate(createVariantSchema),
-  productController.addVariant
-);
+router.route("/:productId/variant")
+  .post(
+    validate(createVariantSchema),
+    productController.addVariant
+  );
 
 /**
- * @route PATCH /products/:productId/variants/:variantId
- * @desc Update variant by ID
- * @access Private (seller, admin)
+ * @route /products/:productId/variant/:variantId
+ * @desc Update or delete variant by ID
+ * @access Seller, Admin
  */
-router.patch(
-  "/:productId/variants/:variantId",
-  checkRole(["seller", "admin"]),
-  validate(updateVariantSchema),
-  productController.updateVariant
-);
+router.route("/:productId/variant/:variantId")
+  .patch(
+    validate(updateVariantSchema),
+    productController.updateVariant
+  )
+  .delete(productController.deleteVariant);
 
 /**
- * @route DELETE /products/:productId/variants/:variantId
- * @desc Delete variant by ID
- * @access Private (seller, admin)
+ * @route /products/:productId/images
+ * @desc Add multiple images to product
+ * @access Seller, Admin
  */
-router.delete(
-  "/:productId/variants/:variantId",
-  checkRole(["seller", "admin"]),
-  productController.deleteVariant
-);
+router.route("/:productId/images")
+  .post(
+    upload.array("images"),
+    productController.addImages
+  );
 
-/**
- * @route POST /products/:productId/images
- * @desc Upload multiple images to product
- * @access Private (seller, admin)
- */
-router.post(
-  "/:productId/images",
-  checkRole(["seller", "admin"]),
-  upload.array("images"),
-  productController.addImages
-);
+export default router;
 
-  export default router;

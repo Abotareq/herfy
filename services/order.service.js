@@ -1,14 +1,11 @@
-import mongoose from "mongoose";
+// import mongoose from "mongoose";
 import StatusCodes from "../utils/status.codes.js";
 import JSEND_STATUS from "../utils/http.status.message.js";
 import Order from "../models/orderModel.js";
 import Product from "../models/productModel.js";
-import Payment from "../models/paymentModel.js";
 import appErrors from "../utils/app.errors.js";
+import Store from "../models/storeModel.js";
 
-/**
- * Create a new order for user with transaction.
- */
 const httpMessages = {
   ORDER_CREATED: "Order created successfully.",
   ORDER_FETCHED: "Order fetched successfully.",
@@ -20,14 +17,19 @@ const httpMessages = {
   ORDER_DELETED: "Order deleted successfully.",
   ORDER_NOT_FOUND: "Order not found.",
   ORDER_ALREADY_CANCELLED: "Order is already cancelled.",
-  PAYMENT_NOT_FOUND: "Payment not found.",
   PRODUCT_NOT_FOUND: "Product not found.",
   INSUFFICIENT_STOCK: "Insufficient stock for product",
   UNAUTHORIZED: "You are not authorized to perform this action."
 };
+
+/**
+ * Creates a new order for a user and updates product stock accordingly.
+ * @param {string} userId - The ID of the user placing the order.
+ * @param {object} orderData - Order details including items, address, payment, etc.
+ * @returns {Promise<object>} JSEND formatted response with created order data.
+ * @throws {Error} If product is not found or insufficient stock.
+ */
 const createOrder = async (userId, orderData) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
   try {
     const {
       orderItems,
@@ -41,17 +43,9 @@ const createOrder = async (userId, orderData) => {
       paidAt
     } = orderData;
 
-    // Verify payment exists if provided
-    if (payment) {
-      const paymentDoc = await Payment.findById(payment).session(session);
-      if (!paymentDoc)
-        throw appErrors.notFound(httpMessages.PAYMENT_NOT_FOUND, StatusCodes.NOT_FOUND);
-    }
-
-    // Build enriched order items with stock validation
     const enrichedItems = await Promise.all(
       orderItems.map(async (item) => {
-        const product = await Product.findById(item.product).session(session);
+        const product = await Product.findById(item.product);
         if (!product)
           throw appErrors.notFound(httpMessages.PRODUCT_NOT_FOUND, StatusCodes.NOT_FOUND);
 
@@ -62,39 +56,31 @@ const createOrder = async (userId, orderData) => {
           );
 
         product.stock -= item.quantity;
-        await product.save({ session });
+        await product.save();
 
         return {
           product: item.product,
-          store: item.store,
+          store: product.store,
           name: product.name,
-          price: product.price,
-          image: product.images,
+          price: product.basePrice,
+          image: product.images[0],
           quantity: item.quantity
         };
       })
     );
 
-    const [order] = await Order.create(
-      [
-        {
-          user: userId,
-          orderItems: enrichedItems,
-          shippingAddress,
-          payment,
-          subtotal,
-          shippingFee,
-          tax,
-          totalAmount,
-          status,
-          paidAt
-        }
-      ],
-      { session }
-    );
-
-    await session.commitTransaction();
-    session.endSession();
+    const order = await Order.create({
+      user: userId,
+      orderItems: enrichedItems,
+      shippingAddress,
+      payment,
+      subtotal,
+      shippingFee,
+      tax,
+      totalAmount,
+      status,
+      paidAt
+    });
 
     return {
       status: JSEND_STATUS.SUCCESS,
@@ -103,31 +89,27 @@ const createOrder = async (userId, orderData) => {
       data: order
     };
   } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
     throw error;
   }
 };
 
 /**
- * Get orders for a specific user with populated data.
- */
-/**
- * Get orders for a specific user with pagination.
+ * Retrieves orders for a specific user with pagination.
+ * @param {string} userId - User ID.
+ * @param {number} page - Page number.
+ * @param {number} limit - Number of results per page.
+ * @returns {Promise<object>} JSEND formatted response with user's orders.
  */
 const getUserOrders = async (userId, page = 1, limit = 10) => {
   const skip = (page - 1) * limit;
 
-  const ordersPromise = Order.find({ user: userId })
-    .populate("orderItems.product")
-    .populate("orderItems.store")
-    .populate("payment")
-    .skip(skip)
-    .limit(limit);
-
-  const countPromise = Order.countDocuments({ user: userId });
-
-  const [orders, total] = await Promise.all([ordersPromise, countPromise]);
+  const [orders, total] = await Promise.all([
+    Order.find({ user: userId })
+      .populate("orderItems.product")
+      .skip(skip)
+      .limit(limit),
+    Order.countDocuments({ user: userId })
+  ]);
 
   return {
     status: JSEND_STATUS.SUCCESS,
@@ -142,26 +124,22 @@ const getUserOrders = async (userId, page = 1, limit = 10) => {
   };
 };
 
-
 /**
- * Get all orders (admin).
- */
-/**
- * Get all orders (admin) with pagination.
+ * Retrieves all orders (admin) with pagination.
+ * @param {number} page - Page number.
+ * @param {number} limit - Number of results per page.
+ * @returns {Promise<object>} JSEND formatted response with all orders.
  */
 const getAllOrders = async (page = 1, limit = 10) => {
   const skip = (page - 1) * limit;
 
-  const ordersPromise = Order.find()
-    .populate("orderItems.product")
-    .populate("orderItems.store")
-    .populate("payment")
-    .skip(skip)
-    .limit(limit);
-
-  const countPromise = Order.countDocuments();
-
-  const [orders, total] = await Promise.all([ordersPromise, countPromise]);
+  const [orders, total] = await Promise.all([
+    Order.find()
+      .populate("orderItems.product")
+      .skip(skip)
+      .limit(limit),
+    Order.countDocuments()
+  ]);
 
   return {
     status: JSEND_STATUS.SUCCESS,
@@ -176,15 +154,14 @@ const getAllOrders = async (page = 1, limit = 10) => {
   };
 };
 
-
 /**
- * Get order by ID (admin).
+ * Retrieves a specific order by ID (admin).
+ * @param {string} orderId - Order ID.
+ * @returns {Promise<object>} JSEND formatted response with order data.
+ * @throws {Error} If order is not found.
  */
 const getOrderById = async (orderId) => {
-  const order = await Order.findById(orderId)
-    .populate("orderItems.product")
-    .populate("orderItems.store")
-    .populate("payment");
+  const order = await Order.findById(orderId).populate("orderItems.product");
 
   if (!order)
     throw appErrors.notFound(httpMessages.ORDER_NOT_FOUND, StatusCodes.NOT_FOUND);
@@ -198,24 +175,25 @@ const getOrderById = async (orderId) => {
 };
 
 /**
- * Get seller's orders.
- */
-/**
- * Get seller's orders with pagination.
+ * Retrieves seller's orders with pagination.
+ * @param {string} sellerId - Seller ID.
+ * @param {number} page - Page number.
+ * @param {number} limit - Number of results per page.
+ * @returns {Promise<object>} JSEND formatted response with seller's orders.
  */
 const getSellerOrders = async (sellerId, page = 1, limit = 10) => {
   const skip = (page - 1) * limit;
 
-  const ordersPromise = Order.find({ "orderItems.store": sellerId })
-    .populate("orderItems.product")
-    .populate("orderItems.store")
-    .populate("payment")
-    .skip(skip)
-    .limit(limit);
+  const stores = await Store.find({ owner: sellerId }).select("_id");
+  const storeIds = stores.map((s) => s._id);
 
-  const countPromise = Order.countDocuments({ "orderItems.store": sellerId });
-
-  const [orders, total] = await Promise.all([ordersPromise, countPromise]);
+  const [orders, total] = await Promise.all([
+    Order.find({ "orderItems.store": { $in: storeIds } })
+      .populate("orderItems.product")
+      .skip(skip)
+      .limit(limit),
+    Order.countDocuments({ "orderItems.store": { $in: storeIds } })
+  ]);
 
   return {
     status: JSEND_STATUS.SUCCESS,
@@ -231,7 +209,11 @@ const getSellerOrders = async (sellerId, page = 1, limit = 10) => {
 };
 
 /**
- * Update order status (admin).
+ * Updates the status of an order (admin).
+ * @param {string} orderId - Order ID.
+ * @param {string} status - New status.
+ * @returns {Promise<object>} JSEND formatted response with updated order.
+ * @throws {Error} If order is not found.
  */
 const updateOrderStatus = async (orderId, status) => {
   const order = await Order.findByIdAndUpdate(orderId, { status }, { new: true });
@@ -247,13 +229,14 @@ const updateOrderStatus = async (orderId, status) => {
 };
 
 /**
- * Retrieves an order by ID belonging to the user.
+ * Retrieves a user's specific order by ID.
+ * @param {string} orderId - Order ID.
+ * @param {string} userId - User ID.
+ * @returns {Promise<object>} JSEND formatted response with order data.
+ * @throws {Error} If order is not found or unauthorized.
  */
 const getMyOrderById = async (orderId, userId) => {
-  const order = await Order.findById(orderId)
-    .populate("orderItems.product")
-    .populate("orderItems.store")
-    .populate("payment");
+  const order = await Order.findById(orderId).populate("orderItems.product");
 
   if (!order)
     throw appErrors.notFound(httpMessages.ORDER_NOT_FOUND, StatusCodes.NOT_FOUND);
@@ -270,116 +253,91 @@ const getMyOrderById = async (orderId, userId) => {
 };
 
 /**
- * Cancel an order and rollback stock quantities.
+ * Cancels an order and rolls back product stock.
+ * @param {string} orderId - Order ID.
+ * @returns {Promise<object>} JSEND formatted response with cancelled order data.
+ * @throws {Error} If order is not found or already cancelled.
  */
 const cancelOrder = async (orderId) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-  try {
-    const order = await Order.findById(orderId).session(session);
-    if (!order)
-      throw appErrors.notFound(httpMessages.ORDER_NOT_FOUND, StatusCodes.NOT_FOUND);
+  const order = await Order.findById(orderId);
+  if (!order)
+    throw appErrors.notFound(httpMessages.ORDER_NOT_FOUND, StatusCodes.NOT_FOUND);
 
-    if (order.status === "cancelled") {
-      throw appErrors.badRequest(httpMessages.ORDER_ALREADY_CANCELLED, StatusCodes.BAD_REQUEST);
+  if (order.status === "cancelled")
+    throw appErrors.badRequest(httpMessages.ORDER_ALREADY_CANCELLED, StatusCodes.BAD_REQUEST);
+
+  for (let item of order.orderItems) {
+    const product = await Product.findById(item.product);
+    if (product) {
+      product.stock += item.quantity;
+      await product.save();
     }
-
-    for (let item of order.orderItems) {
-      const product = await Product.findById(item.product).session(session);
-      if (product) {
-        product.stock += item.quantity;
-        await product.save({ session });
-      }
-    }
-
-    order.status = "cancelled";
-    await order.save({ session });
-
-    await session.commitTransaction();
-    session.endSession();
-
-    return {
-      status: JSEND_STATUS.SUCCESS,
-      statusCode: StatusCodes.OK,
-      message: httpMessages.ORDER_CANCELLED,
-      data: order
-    };
-  } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
-    throw error;
   }
+
+  order.status = "cancelled";
+  await order.save();
+
+  return {
+    status: JSEND_STATUS.SUCCESS,
+    statusCode: StatusCodes.OK,
+    message: httpMessages.ORDER_CANCELLED,
+    data: order
+  };
 };
 
 /**
- * Delete an order and rollback stock quantities.
- */
-const deleteOrder = async (orderId) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-  try {
-    const order = await Order.findById(orderId).session(session);
-    if (!order)
-      throw appErrors.notFound(httpMessages.ORDER_NOT_FOUND, StatusCodes.NOT_FOUND);
-
-    for (let item of order.orderItems) {
-      const product = await Product.findById(item.product).session(session);
-      if (product) {
-        product.stock += item.quantity;
-        await product.save({ session });
-      }
-    }
-
-    await order.deleteOne({ session });
-
-    await session.commitTransaction();
-    session.endSession();
-
-    return {
-      status: JSEND_STATUS.SUCCESS,
-      statusCode: StatusCodes.OK,
-      message: httpMessages.ORDER_DELETED,
-      data: order
-    };
-  } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
-    throw error;
-  }
-};
-
-/**
- * Update order items.
+ * Updates fields of a specific order item.
+ * @param {string} orderId - Order ID.
+ * @param {string} itemId - Order item ID.
+ * @param {object} fields - Fields to update.
+ * @param {object} file - File object for image update.
+ * @returns {Promise<object>} Updated order item.
+ * @throws {Error} If order or item is not found.
  */
 const updateOrderItem = async (orderId, itemId, fields, file) => {
   const order = await Order.findById(orderId);
-  if (!order) {
-    const error = new Error('Order not found');
-    error.statusCode = 404;
-    throw error;
-  }
+  if (!order) throw appErrors.notFound(httpMessages.ORDER_NOT_FOUND, StatusCodes.NOT_FOUND);
 
   const item = order.orderItems.id(itemId);
-  if (!item) {
-    const error = new Error('Order item not found');
-    error.statusCode = 404;
-    throw error;
-  }
+  if (!item) throw appErrors.notFound('Order item not found', StatusCodes.NOT_FOUND);
 
-  // Update fields if provided
   if (fields.name) item.name = fields.name;
   if (fields.quantity) item.quantity = fields.quantity;
   if (fields.price) item.price = fields.price;
-
-  // Update image if file is uploaded
-  if (file) {
-    item.image = file.path; // or cloudinary URL
-  }
+  if (file) item.image = file.path;
 
   await order.save();
   return item;
 };
 
+/**
+ * Deletes an order and rolls back product stock.
+ * @param {string} orderId - Order ID.
+ * @returns {Promise<object>} JSEND formatted response with deleted order data.
+ * @throws {Error} If order is not found.
+ */
+const deleteOrder = async (orderId) => {
+  const order = await Order.findById(orderId);
+  if (!order)
+    throw appErrors.notFound(httpMessages.ORDER_NOT_FOUND, StatusCodes.NOT_FOUND);
+
+  for (let item of order.orderItems) {
+    const product = await Product.findById(item.product);
+    if (product) {
+      product.stock += item.quantity;
+      await product.save();
+    }
+  }
+
+  await order.deleteOne();
+
+  return {
+    status: JSEND_STATUS.SUCCESS,
+    statusCode: StatusCodes.OK,
+    message: httpMessages.ORDER_DELETED,
+    data: order
+  };
+};
 
 export default {
   createOrder,
@@ -390,6 +348,6 @@ export default {
   updateOrderStatus,
   getMyOrderById,
   cancelOrder,
-  deleteOrder,
-  updateOrderItem
+  updateOrderItem,
+  deleteOrder
 };

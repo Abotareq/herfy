@@ -30,10 +30,6 @@ export const getUserById = async (req, res) => {
 }
 }
 export const updateUser = async(req, res) => {
-    // check if the token contain the id
-    if(req.decoded.id !== req.params.id){
-        return res.status(StatusCodes.BAD_REQUEST).json({status: httpStatus.ERROR, data:{message: "Unothraized User"}});
-    }
     try {
         const userId = req.params.id
         const updateUser = await User.findByIdAndUpdate(userId,
@@ -46,3 +42,15 @@ export const updateUser = async(req, res) => {
         res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({status: httpStatus.ERROR, data: {message: error}})
     }
 }
+export const deleteUser = async(req, res) => {
+    try {
+        const userId = req.params.id;
+        const deletedUser = User.findByIdAndDelete(userId);
+        if(!deletedUser){
+            res.status(StatusCodes.NOT_FOUND).json({status: httpStatus.ERROR, data: {message:"not found user"}});
+        }
+        res.status(StatusCodes.OK).json({status: httpStatus.SUCCESS, data: {message:"User Deleted Succefully"}});
+    } catch (error) {
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({status: httpStatus.ERROR, data: {message: error}})
+    }
+} 

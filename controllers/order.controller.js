@@ -1,128 +1,211 @@
+import asyncWrapper from "../middlewares/async.wrapper.js";
 import orderService from "../services/order.service.js";
-import AsyncWrapper from "../middlewares/async.wrapper.js";
-import StatusCodes from "../utils/status.codes.js";
 import JSEND_STATUS from "../utils/http.status.message.js";
+import StatusCodes from "../utils/status.codes.js";
 
 /**
- * Create order controller.
+ * @module OrderController
+ * @description Controller for order routes and business logic
  */
-const createOrder = AsyncWrapper(async (req, res) => {
-  const order = await orderService.createOrder(req.user._id, req.body);
+
+/**
+ * Create a new order for the current user.
+ * @route POST /orders
+ * @access Private (User)
+ * @param {Object} req - Express request object with user and body
+ * @param {Object} res - Express response object
+ * @returns {Object} Newly created order
+ */
+const createOrder = asyncWrapper(async (req, res) => {
+  const userId = req.user._id;
+  const order = await orderService.createOrder(userId, req.body);
   res.status(StatusCodes.CREATED).json({
     status: JSEND_STATUS.SUCCESS,
-    data: order
+    data: order,
   });
 });
 
 /**
- * Get current user's orders.
+ * Get all orders of the current user with pagination.
+ * @route GET /orders
+ * @access Private (User)
+ * @param {Object} req - Express request with user, query.page, query.limit
+ * @param {Object} res - Express response
+ * @returns {Object[]} List of user orders
  */
-const getUserOrders = AsyncWrapper(async (req, res) => {
-  const orders = await orderService.getUserOrders(req.user._id);
+const getUserOrders = asyncWrapper(async (req, res) => {
+  const userId = req.user._id;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+
+  const orders = await orderService.getUserOrders(userId, page, limit);
+
   res.status(StatusCodes.OK).json({
     status: JSEND_STATUS.SUCCESS,
-    data: orders
+    data: orders,
   });
 });
 
 /**
- * Get all orders (admin).
+ * Get all orders (admin) with pagination.
+ * @route GET /orders/admin/orders
+ * @access Private (Admin)
+ * @param {Object} req - Express request with query.page, query.limit
+ * @param {Object} res - Express response
+ * @returns {Object[]} List of all orders
  */
-const getAllOrders = AsyncWrapper(async (req, res) => {
-  const orders = await orderService.getAllOrders();
+const getAllOrders = asyncWrapper(async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+
+  const orders = await orderService.getAllOrders(page, limit);
+
   res.status(StatusCodes.OK).json({
     status: JSEND_STATUS.SUCCESS,
-    data: orders
+    data: orders,
   });
 });
 
 /**
- * Get order by ID (admin).
+ * Get an order by ID (admin).
+ * @route GET /orders/admin/orders/:orderId
+ * @access Private (Admin)
+ * @param {Object} req - Express request with params.orderId
+ * @param {Object} res - Express response
+ * @returns {Object} Order details
  */
-const getOrderById = AsyncWrapper(async (req, res) => {
-  const order = await orderService.getOrderById(req.params.id);
+const getOrderById = asyncWrapper(async (req, res) => {
+  const { orderId } = req.params;
+  const order = await orderService.getOrderById(orderId);
   res.status(StatusCodes.OK).json({
     status: JSEND_STATUS.SUCCESS,
-    data: order
+    data: order,
   });
 });
 
 /**
- * Get orders for a seller.
+ * Get all orders for the current seller with pagination.
+ * @route GET /orders/seller/orders
+ * @access Private (Seller)
+ * @param {Object} req - Express request with user, query.page, query.limit
+ * @param {Object} res - Express response
+ * @returns {Object[]} List of seller orders
  */
-const getSellerOrders = AsyncWrapper(async (req, res) => {
-  const orders = await orderService.getSellerOrders(req.user._id);
+const getSellerOrders = asyncWrapper(async (req, res) => {
+  const sellerId = req.user._id;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+
+  const orders = await orderService.getSellerOrders(sellerId, page, limit);
+
   res.status(StatusCodes.OK).json({
     status: JSEND_STATUS.SUCCESS,
-    data: orders
+    data: orders,
   });
 });
 
 /**
- * Update order status (admin).
+ * Update status of an order (admin).
+ * @route PATCH /orders/admin/orders/:orderId/status
+ * @access Private (Admin)
+ * @param {Object} req - Express request with params.orderId, body.status
+ * @param {Object} res - Express response
+ * @returns {Object} Updated order
  */
-const updateOrderStatus = AsyncWrapper(async (req, res) => {
-  const order = await orderService.updateOrderStatus(
-    req.params.id,
-    req.body.status
-  );
+const updateOrderStatus = asyncWrapper(async (req, res) => {
+  const { orderId } = req.params;
+  const { status } = req.body;
+
+  const order = await orderService.updateOrderStatus(orderId, status);
+
   res.status(StatusCodes.OK).json({
     status: JSEND_STATUS.SUCCESS,
-    data: order
+    data: order,
   });
 });
 
 /**
- * Get specific order for current user.
+ * Get a specific order for the current user.
+ * @route GET /orders/:orderId
+ * @access Private (User)
+ * @param {Object} req - Express request with params.orderId, user
+ * @param {Object} res - Express response
+ * @returns {Object} Order details
  */
-const getMyOrderById = AsyncWrapper(async (req, res) => {
-  const order = await orderService.getMyOrderById(req.params.id, req.user._id);
+const getMyOrderById = asyncWrapper(async (req, res) => {
+  const userId = req.user._id;
+  const { orderId } = req.params;
+
+  const order = await orderService.getMyOrderById(orderId, userId);
+
   res.status(StatusCodes.OK).json({
     status: JSEND_STATUS.SUCCESS,
-    data: order
+    data: order,
   });
 });
 
 /**
- * Cancel order.
+ * Cancel an order.
+ * @route PATCH /orders/:orderId/cancel
+ * @access Private (User)
+ * @param {Object} req - Express request with params.orderId
+ * @param {Object} res - Express response
+ * @returns {Object} Cancelled order
  */
-const cancelOrder = AsyncWrapper(async (req, res) => {
-  const order = await orderService.cancelOrder(req.params.id);
+const cancelOrder = asyncWrapper(async (req, res) => {
+  const { orderId } = req.params;
+
+  const order = await orderService.cancelOrder(orderId);
+
   res.status(StatusCodes.OK).json({
     status: JSEND_STATUS.SUCCESS,
-    data: order
+    data: order,
   });
 });
 
 /**
- * Delete order.
+ * Delete an order.
+ * @route DELETE /orders/:orderId
+ * @access Private (User)
+ * @param {Object} req - Express request with params.orderId
+ * @param {Object} res - Express response
+ * @returns {Object} Deleted order
  */
-const deleteOrder = AsyncWrapper(async (req, res) => {
-  const order = await orderService.deleteOrder(req.params.id);
+const deleteOrder = asyncWrapper(async (req, res) => {
+  const { orderId } = req.params;
+
+  const order = await orderService.deleteOrder(orderId);
+
   res.status(StatusCodes.OK).json({
     status: JSEND_STATUS.SUCCESS,
-    data: order
+    data: order,
   });
 });
 
 /**
- * Update order items (e.g. by admin).
+ * Update an item within an order (name, quantity, price, image).
+ * @route PATCH /orders/:orderId/items/:itemId
+ * @access Private (User)
+ * @param {Object} req - Express request with params.orderId, params.itemId, body (name, quantity, price), file
+ * @param {Object} res - Express response
+ * @returns {Object} Updated order item
  */
-const updateOrderItems = AsyncWrapper(async (req, res, next) => {
+const updateOrderItems = asyncWrapper(async (req, res) => {
   const { orderId, itemId } = req.params;
   const { name, quantity, price } = req.body;
   const file = req.file;
 
-  try {
-    const updatedItem = await orderService.updateOrderItem(orderId, itemId, { name, quantity, price }, file);
-    res.status(200).json({
-      status: 'success',
-      message: 'Order item updated successfully',
-      data: updatedItem,
-    });
-  } catch (error) {
-    next(error);
-  }
+  const updatedItem = await orderService.updateOrderItem(
+    orderId,
+    itemId,
+    { name, quantity, price },
+    file
+  );
+
+  res.status(StatusCodes.OK).json({
+    status: JSEND_STATUS.SUCCESS,
+    data: updatedItem,
+  });
 });
 
 export default {
@@ -135,5 +218,5 @@ export default {
   getMyOrderById,
   cancelOrder,
   deleteOrder,
-  updateOrderItems
+  updateOrderItems,
 };

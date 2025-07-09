@@ -1,110 +1,94 @@
 import express from "express";
 import cartController from "../controllers/cart.controller.js";
 import validate from "../middlewares/validate.middleware.js";
-import { createOrUpdateCartSchema, updateCartSchema, addItemSchema } from "../validations/cart.validation.js";
 import { requireAuth, checkRole } from "../auth/auth.middleware.js";
+import {
+  addItemSchema,
+  createOrUpdateCartSchema,
+  updateCartSchema,
+  applyCouponSchema
+} from "../validations/cart.validation.js";
 
 const router = express.Router();
 
-// ================================
-// User routes (require auth)
-// ================================
-router.use(requireAuth); // Protect all routes below
+// Apply global authentication
+router.use(requireAuth);
 
 /**
- * @route POST /cart/apply-coupon
- * @desc Apply a coupon code to the authenticated user's cart.
- * @access Private (Registered Users)
+ * ====================
+ *   User & Admin routes
+ * ====================
  */
-router.post("/apply-coupon", cartController.applyCoupon);
-/**
- * @route POST /cart
- * @desc Create or update the cart of the currently authenticated user.
- * @access Private (Registered Users)
- */
-router.post("/", validate(createOrUpdateCartSchema), cartController.createOrUpdateCart);
+
+// /cart/
+router
+  .route("/")
+  .post(
+    checkRole(["user"]),
+    validate(createOrUpdateCartSchema),
+    cartController.createOrUpdateCart
+  )
+  .patch(
+    checkRole(["user"]),
+    validate(updateCartSchema),
+    cartController.updateCart
+  )
+  .get(
+    checkRole(["user", "admin"]),
+    cartController.getCartByUserId
+  )
+  .delete(
+    checkRole(["user", "admin"]),
+    cartController.deleteCart
+  );
 
 /**
- * @route GET /cart
- * @desc Get the cart of the currently authenticated user.
- * @access Private (Registered Users)
+ * /cart/items
+ * Add item to cart
  */
-router.get("/", cartController.getMyCart);
+router
+  .route("/items")
+  .post(
+    checkRole(["user"]),
+    validate(addItemSchema),
+    cartController.addItemToCart
+  );
 
 /**
- * @route PATCH /cart
- * @desc Update the cart of the currently authenticated user.
- * @access Private (Registered Users)
+ * /cart/items/:productId
+ * Remove item from cart
  */
-router.patch("/", validate(updateCartSchema), cartController.updateMyCart);
+router
+  .route("/items/:productId")
+  .delete(
+    checkRole(["user"]),
+    cartController.removeItemFromCart
+  );
 
 /**
- * @route DELETE /cart
- * @desc Delete the cart of the currently authenticated user.
- * @access Private (Registered Users)
+ * /cart/apply-coupon
+ * Apply coupon to cart
  */
-router.delete("/", cartController.deleteMyCart);
+router
+  .route("/apply-coupon")
+  .post(
+    checkRole(["user"]),
+    validate(applyCouponSchema),
+    cartController.applyCoupon
+  );
 
 /**
- * @route POST /cart/items
- * @desc Add an item to the cart of the currently authenticated user.
- * @access Private (Registered Users)
+ * ====================
+ *   Admin routes
+ * ====================
  */
-router.post("/items", validate(addItemSchema), cartController.addItemToMyCart);
 
-/**
- * @route DELETE /cart/items/:productId
- * @desc Remove a specific item from the cart of the currently authenticated user.
- * @access Private (Registered Users)
- * @params :productId (ID of the product to remove)
- */
-router.delete("/items/:productId", cartController.removeItemFromMyCart);
-
-/**
- * @route GET /cart/shopping-cart
- * @desc View the cart of the currently authenticated user.
- * @access Private (Registered Users)
- */
-router.get("/items", cartController.viewCart);
-
-// ================================
-// 🔹 Admin routes (require admin role)
-// ================================
-router.use(checkRole(["admin"])); // All routes below require admin
-
-/**
- * @route GET /cart/:userId
- * @desc Admin: Get cart by user ID.
- * @access Private (Admin only)
- */
-router.get("/:userId", cartController.getCartByUserId);
-
-/**
- * @route PATCH /cart/:userId
- * @desc Admin: Update cart by user ID.
- * @access Private (Admin only)
- */
-router.patch("/:userId", validate(updateCartSchema), cartController.updateCartByUserId);
-
-/**
- * @route DELETE /cart/:userId
- * @desc Admin: Delete cart by user ID.
- * @access Private (Admin only)
- */
-router.delete("/:userId", cartController.deleteCartByUserId);
-
-/**
- * @route POST /cart/:userId/items
- * @desc Admin: Add item to a user's cart by user ID.
- * @access Private (Admin only)
- */
-router.post("/:userId/items", validate(addItemSchema), cartController.addItemToCartByUserId);
-
-/**
- * @route DELETE /cart/:userId/items/:productId
- * @desc Admin: Remove item from a user's cart by user ID.
- * @access Private (Admin only)
- */
-router.delete("/:userId/items/:productId", cartController.removeItemFromCartByUserId);
+// /cart/all-carts
+router
+  .route("/all-carts")
+  .get(
+    checkRole(["admin"]),
+    cartController.getAllCarts
+  );
 
 export default router;
