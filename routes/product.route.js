@@ -1,11 +1,7 @@
 
-  import express from "express";
   import productController from "../controllers/product.controller.js";
   import uploadfrom from '../middlewares/uploade.middleware.js';
-  import validate from "../middlewares/validate.middleware.js";
-  import { createProductSchema, updateProductSchema } from "../validations/product.validation.js";
 import express from "express";
-import productController from "../controllers/product.controller.js";
 import upload from "../middlewares/uploade.middleware.js";
 import validate from "../middlewares/validate.middleware.js";
 import {
@@ -103,7 +99,7 @@ import { requireAuth, checkRole } from "../auth/auth.middleware.js";
    */
   router.route("/:productId/images")
     .post(upload.array("images"), productController.addImages);
-=======
+
 /**
  * ================================
  *  PUBLIC ROUTES
