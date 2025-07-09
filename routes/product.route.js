@@ -2,7 +2,6 @@
   import productController from "../controllers/product.controller.js";
   import uploadfrom from '../middlewares/uploade.middleware.js';
 import express from "express";
-import upload from "../middlewares/uploade.middleware.js";
 import validate from "../middlewares/validate.middleware.js";
 import upload from "../middlewares/uploade.middleware.js";
 import { requireAuth, checkRole } from "../auth/auth.middleware.js";
