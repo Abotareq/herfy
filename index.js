@@ -9,6 +9,8 @@ import helmet from "helmet";
 import morgan from "morgan";
 import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
+import passport from "passport";
+import "./auth/google.passport.js";
 
 // multer
 import path from "path";
@@ -47,7 +49,7 @@ app.use(
     message: "Too many requests from this IP, please try again later.",
   })
 );
-
+app.use(passport.initialize());
 // For ES modules: define __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

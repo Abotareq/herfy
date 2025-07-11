@@ -87,3 +87,22 @@ export const signOut = async (req, res) => {
     message: "Logged out successfully",
   });
 };
+export const googleCallback = async (req, res) => {
+  try {
+    const user = req.user;
+    const token = generateToken(user);
+    const { password: _, ...safeUser } = user.toObject();
+
+    res
+      .cookie("access_token", token, {
+        httpOnly: true,
+        sameSite: "Lax",
+        secure: process.env.NODE_ENV === "production",
+        expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      })
+      .status(200)
+      .json({ user: safeUser });
+  } catch (err) {
+    res.status(500).json({ error: "Google login failed" });
+  }
+};
