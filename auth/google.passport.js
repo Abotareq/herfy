@@ -20,6 +20,9 @@ passport.use(
             googleId: profile.id,
             userName: profile.displayName,
             email: profile.emails[0].value,
+            firstName:profile.name.givenName,
+            lastName:profile.name.familyName,
+            
           });
         }
 
