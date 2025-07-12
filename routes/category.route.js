@@ -9,6 +9,7 @@ const categoryRouter = express.Router();
 import multer from 'multer';
 import userRole from "../utils/user.role.js";
 import { searchCategoryByName } from "../controllers/search.controller.js";
+import { filterCategoryByName } from "../controllers/filter.controller.js";
 
 // create folder to hold photos in
 const discStorage = multer.diskStorage({
@@ -40,7 +41,8 @@ categoryRouter.delete('/:id',requireAuth,checkRole([userRole.ADMIN]),  deleteCat
 categoryRouter.post('/', upload.single('image'),requireAuth,checkRole([userRole.ADMIN]),addNewCategory)
 // any one can search category
 categoryRouter.patch('/:id',requireAuth,checkRole([userRole.ADMIN]), UpdateCategory)
-categoryRouter.get('/search',requireAuth, searchCategoryByName)
+categoryRouter.get('/search',requireAuth, searchCategoryByName);
+categoryRouter.get('/filter', requireAuth, filterCategoryByName)
 export default categoryRouter;
 //UPDATE CATEGORY BY ID "ADMIN" ADD TO YOUR ALL ROUTERS ERROR MIDDLE WARE LOOK FOR AUTH CONTROLLER FOR REFERNCE.
 // search and filter by name
