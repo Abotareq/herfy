@@ -3,7 +3,7 @@ import StatusCodes from '../utils/status.codes.js';
 import httpStatus from '../utils/http.status.message.js'
 
 // get all category
-export const getAllCategoty = async(req, res, next) => {
+export const getAllCategoty = async(req, res) => {
     // pagination 
     try {
     const query = req.query;
@@ -16,11 +16,11 @@ export const getAllCategoty = async(req, res, next) => {
     }
     res.status(StatusCodes.OK).json({status: httpStatus.SUCCESS, data: {allCategories}})
     } catch (err) {
-       next(next(new ErrorResponse(err, StatusCodes.UNAUTHORIZED)))
+        res.status(StatusCodes.UNAUTHORIZED).json({data: {status: err, message: "unothorized user"}})   
     }
 }
 // add category
-export const addNewCategory = async (req, res, next) => {
+export const addNewCategory = async (req, res) => {
     try {
         const {name, image} = req.body;
         const newCategory = await Category.create({
@@ -29,23 +29,23 @@ export const addNewCategory = async (req, res, next) => {
         })
         res.status(StatusCodes.OK).json({status: httpStatus.SUCCESS, data:{newCategory}})
     } catch (error) {
-       next(next(new ErrorResponse(error, StatusCodes.UNAUTHORIZED)))
+        res.status(StatusCodes.UNAUTHORIZED).json({status: error,data: {message: "Failed to add new Category"}})
     }
 }
 // get category by id
-export const getCategotyById = async(req, res, next) => {
+export const getCategotyById = async(req, res) => {
     try {
         const catId = req.params.id
-        const category = await Category.findById(catId);
-        if(!category){
-            res.status(StatusCodes.NOT_FOUND).json({status: httpStatus.ERROR, data: {message: 'Not match Category'}});
-        }
-            res.status(StatusCodes.OK).json({status: httpStatus.SUCCESS, data:{category}})
-        } catch (error) {
-            next(next(new ErrorResponse(error, StatusCodes.UNAUTHORIZED)))
-        }
+    const category = await Category.findById(catId);
+    if(!category){
+        res.status(StatusCodes.NOT_FOUND).json({status: httpStatus.ERROR, data: {message: 'Not match Category'}});
+    }
+    res.status(StatusCodes.OK).json({status: httpStatus.SUCCESS, data:{category}})
+    } catch (error) {
+        res.status(StatusCodes.UNAUTHORIZED).json({data: {status: error, message: 'failed to get category'}})
+    }
 }
-export const deleteCategory = async(req, res, next) => {
+export const deleteCategory = async(req, res) => {
     const categoryId = req.params.id
     try {
         const deletedCategory = Category.findByIdAndDelete(categoryId)
@@ -54,21 +54,6 @@ export const deleteCategory = async(req, res, next) => {
         }
         res.status(StatusCodes.OK).json({status: httpStatus.SUCCESS, data:{message: "The Category deleted"}})
     } catch (error) {
-         next(next(new ErrorResponse(error, StatusCodes.UNAUTHORIZED)))
-    }
-}
-export const UpdateCategory = async (req, res, next) => {
-    if(!req.user.role || req.user.role !== 'ADMIN'){
-        res.json(StatusCodes.UNAUTHORIZED).json({data: {message: 'UNAUTHORIZED User'}})
-    }
-    try {
-        const categoryId = req.params.id;
-        const newCategory = Category.findByIdAndUpdate(categoryId)
-        if(!newCategory){
-            res.status(StatusCodes.BAD_REQUEST).json({status: httpStatus.ERROR, data:{message: "Can't get this category"}});
-        }
-        res.status(StatusCodes.OK).son({status: httpStatus.SUCCESS, data:{newCategory}})
-    } catch (error) {
-       return next(new ErrorResponse(error, StatusCodes.UNAUTHORIZED));
+         res.status(StatusCodes.UNAUTHORIZED).json({data: {status: error, message: 'failed to get category'}})
     }
 }
