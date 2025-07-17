@@ -46,73 +46,66 @@ export const updateUserByAdmin = async(req, res, next) => {
     }
 }
 //BY ADMIN
-export const updateByUser = async(req, res, next) => {
-    const user = await User.findById(decoded.id).select("-password");  
-    try {
-        const userId = req.params.id
-        if(user.id !== userId){
-            return res.status(StatusCodes.FORBIDDEN).json({
-            status: httpStatus.ERROR,
-            data: { message: 'You are not allowed to update this user.' }
-      });
-        }
-        const updateUser = await User.findByIdAndUpdate(userId,
-            {$set: {...req.body}},{ new: true })
-        if(!updateUser){
-            res.status(StatusCodes.NOT_FOUND).json({status: httpStatus.ERROR, data: {message:"not found user"}});
-        }
-        res.status(StatusCodes.FOUND).json({status: httpStatus.SUCCESS, data: {updateUser}})
-    } catch (error) {
-       next(next(new ErrorResponse(error, StatusCodes.UNAUTHORIZED)))
-    }
-}
-export const updateUserByVendor = async(req, res, next) => {
-    try {
-        const userId = req.params.id
-        if(req.user.id !== userId){
-            return res.status(StatusCodes.FORBIDDEN).json({
-            status: httpStatus.ERROR,
-            data: { message: 'You are not allowed to update this user.' }
-        })
-    }
-     const updateUser = await User.findByIdAndUpdate(userId,
-            {$set: {...req.body}},{ new: true })
-        if(!updateUser){
-            res.status(StatusCodes.NOT_FOUND).json({status: httpStatus.ERROR, data: {message:"not found user"}});
-        }
-        res.status(StatusCodes.FOUND).json({status: httpStatus.SUCCESS, data: {updateUser}})
+export const updateByUser = async (req, res, next) => {
+  try {
+    const currentUser = req.user;
 
-    } catch (error) {
-         next(next(new ErrorResponse(error, StatusCodes.UNAUTHORIZED)))
+    if (!currentUser) {
+      return next(new ErrorResponse("User not found", StatusCodes.NOT_FOUND));
     }
-}
+
+    const updatedUser = await User.findByIdAndUpdate(
+      currentUser._id,
+      { $set: { ...req.body } },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(StatusCodes.NOT_FOUND).json({
+        status: httpStatus.FAIL,
+        data: { message: "User not found or update failed" },
+      });
+    }
+
+    res.status(StatusCodes.OK).json({
+      status: httpStatus.SUCCESS,
+      data: { updatedUser },
+    });
+
+  } catch (error) {
+    next(new ErrorResponse(error.message, StatusCodes.INTERNAL_SERVER_ERROR));
+  }
+};
+
 export const deleteUserByAdmin = async (req, res, next) => {
     if(!req.user.role || req.user.role !== userRole.ADMIN){
-        res.json(StatusCodes.UNAUTHORIZED).json({data: {message: 'UNAUTHORIZED User'}}) 
+     return next(new ErrorResponse('Unauthorized user', StatusCodes.UNAUTHORIZED))   
     }
     try {
         const userId = req.params.id;
         const deletedUser = User.findByIdAndDelete(userId);
         if(!deletedUser){
-            res.status(StatusCodes.NOT_FOUND).json({status: httpStatus.ERROR, data: {message:"not found user"}});
+           return next(new ErrorResponse('User Not Found', StatusCodes.NOT_FOUND))
         }
         res.status(StatusCodes.OK).json({status: httpStatus.SUCCESS, data: {message:"User Deleted Succefully"}});
     } catch (error) {
-       next(next(new ErrorResponse(error, StatusCodes.UNAUTHORIZED)))
+       next(new ErrorResponse(error, StatusCodes.UNAUTHORIZED))
     }
 }
-export const deleteUserByUser = async (req, res, next) =>{
-    if(!req.user.role || req.user.role !== userRole.CUSTOMER){
-        res.json(StatusCodes.UNAUTHORIZED).json({data: {message: 'UNAUTHORIZED User'}})
+export const deleteUserByUser = async (req, res, next) => {
+  try {
+    const currentUser = req.user;
+    const deletedUser = await User.findByIdAndDelete(currentUser._id);
+    if (!deletedUser) {
+      return  next(new ErrorResponse("User not Found", StatusCodes.NOT_FOUND));
     }
-    try {
-        const customerId = req.params.id;
-        const deleteCustomer = User.findByIdAndDelete(customerId);
-        if(!deleteCustomer){
-            res.status(StatusCodes.NOT_FOUND).json({status: httpStatus.ERROR, data: {message:"not found user"}});
-        }
-        res.status(StatusCodes.OK).json({status: httpStatus.SUCCESS, data: {message:"User Deleted Succefully"}});
-    } catch (error) {
-        next(next(new ErrorResponse(error, StatusCodes.UNAUTHORIZED)))
-    }
-}
+
+    res.status(StatusCodes.OK).json({
+      status: httpStatus.SUCCESS,
+      data: { message: "User deleted successfully" },
+    });
+
+  } catch (error) {
+    next(new ErrorResponse(error.message, StatusCodes.INTERNAL_SERVER_ERROR));
+  }
+};
