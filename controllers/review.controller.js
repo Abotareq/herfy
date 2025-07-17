@@ -25,7 +25,7 @@ export const getAllReviews = async(req, res, next) => {
     try {
         const allReviews =await Review.find().populate('comment').limit(limit).skip(end);
         if(!allReviews){
-            res.status(StatusCodes.NOT_FOUND).json({status: httpStatus.FAIL, data: {message: 'No Reviews found for that product'}});
+            return next(new ErrorResponse('No review found', StatusCodes.NOT_FOUND));
         }
         res.status(StatusCodes.OK).json({status: httpStatus.SUCCESS, data: {allReviews}});
     } catch (error) {
@@ -33,24 +33,41 @@ export const getAllReviews = async(req, res, next) => {
     }
 }
 // update review
-export const updateReviews = async(req, res, next) => {
-    try {
-        const reviewId = req.params.id;
-        const updatedReview = await Review.findById(reviewId, {$set: {...req.body}}, {new: true});
-        if(!updatedReview){
-            res.status(StatusCodes.NOT_FOUND).json({status: httpStatus.FAIL, data: {message: "can't updated the review"}});
-        }
-        res.status(StatusCodes.OK).json({status: httpStatus.SUCCESS, data: {updatedReview}});
-    } catch (error) {
-      next(new ErrorResponse(error, StatusCodes.UNAUTHORIZED));
+export const updateReviews = async (req, res, next) => {
+  try {
+    if (!req.user) {
+      return next(new ErrorResponse("Unauthorized access", StatusCodes.UNAUTHORIZED));
     }
+
+    const updatedReview = await Review.findOneAndUpdate(
+      { user: req.user._id },
+      { $set: { ...req.body } },
+      { new: true }
+    );
+
+    if (!updatedReview) {
+      return next(new ErrorResponse("Review not found or not authorized", StatusCodes.NOT_FOUND));
+    }
+
+    res.status(StatusCodes.OK).json({
+      status: httpStatus.SUCCESS,
+      data: { updatedReview },
+    });
+
+  } catch (error) {
+    next(new ErrorResponse(error.message, StatusCodes.INTERNAL_SERVER_ERROR));
+  }
 }
+
 export const deleteReview = async (req, res, next) => {
     try {
-        const deleteId = req.params.id;
-        const deletedReview = await Review.findByIdAndDelete(deleteId);
+        if(!req.user){
+            return next(new ErrorResponse(error, StatusCodes.UNAUTHORIZED))
+        }
+        
+        const deletedReview = await Review.findOneAndDelete({user: req.user._id});
         if(!deletedReview){
-            res.status(StatusCodes.NOT_FOUND).json({status: httpStatus.FAIL, data: {message: 'No review exists'}});
+            return next(new ErrorResponse(error, StatusCodes.NOT_FOUND));
         }
         res.status(StatusCodes.OK).json({status:httpStatus.SUCCESS, data: {message: 'Review deleted Succefully'}});
     } catch (error) {
@@ -59,14 +76,14 @@ export const deleteReview = async (req, res, next) => {
 }
 // delete review by admin
 export const deleteReviewByAdmin = async(req, res, next) => {
-    if(!req.user.role || req.user.role !== userRole.ADMIN){
-        res.json(StatusCodes.UNAUTHORIZED).json({data: {message: 'UNAUTHORIZED User'}});
+    if(!req.user){
+        return next(new ErrorResponse('Unauthorized User', StatusCodes.UNAUTHORIZED));
     }
     try {
         const reviewID = req.params.id;
-        const newReview = await Review.findByIdAndDelete(reviewID);
-        if(!newReview){
-            res.status(StatusCodes.NOT_FOUND).json({status: httpStatus.FAIL, data: {message: 'No review exists'}});
+        const deletedReview = await Review.findByIdAndDelete(reviewID);
+        if(!deletedReview){
+            return next(new ErrorResponse('No Review Found', StatusCodes.NOT_FOUND)); 
         }
         res.status(StatusCodes.OK).json({status:httpStatus.SUCCESS, data: {message: 'Review deleted Succefully'}});
     } catch (error) {

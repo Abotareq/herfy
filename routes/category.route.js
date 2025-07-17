@@ -34,6 +34,8 @@ const fileType = (req, file, cb) => {
 const upload = multer({storage: discStorage,
         fileFilter: fileType
 })
+categoryRouter.get('/filter', requireAuth, filterCategoryByName)
+categoryRouter.get('/search',requireAuth, searchCategoryByName);
 
 categoryRouter.get('/',requireAuth ,getAllCategoty)
 categoryRouter.get('/:id',requireAuth,checkRole([userRole.ADMIN]), getCategotyById)
@@ -41,8 +43,6 @@ categoryRouter.delete('/:id',requireAuth,checkRole([userRole.ADMIN]),  deleteCat
 categoryRouter.post('/', upload.single('image'),requireAuth,checkRole([userRole.ADMIN]),addNewCategory)
 // any one can search category
 categoryRouter.patch('/:id',requireAuth,checkRole([userRole.ADMIN]), UpdateCategory)
-categoryRouter.get('/search',requireAuth, searchCategoryByName);
-categoryRouter.get('/filter', requireAuth, filterCategoryByName)
 export default categoryRouter;
 //UPDATE CATEGORY BY ID "ADMIN" ADD TO YOUR ALL ROUTERS ERROR MIDDLE WARE LOOK FOR AUTH CONTROLLER FOR REFERNCE.
 // search and filter by name
