@@ -6,7 +6,7 @@ import Order from "../models/orderModel.js";
 import Product from "../models/productModel.js";
 import AppErrors from "../utils/app.errors.js";
 import Store from "../models/storeModel.js";
-import { Coupon } from "../models/cuponModel.js";
+import Coupon  from "../models/cuponModel.js";
 import Cart from "../models/cartModel.js";
 import Payment from "../models/paymentModel.js";
 import { httpMessages } from "../constant/constant.js";
