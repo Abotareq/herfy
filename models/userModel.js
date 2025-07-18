@@ -21,7 +21,7 @@
 
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
-import userRole from '../utils/user.role.js'
+import userRole from "../utils/user.role.js";
 // A sub-document for addresses
 // تفاصيل العنوان كتيرة شوية
 const addressSchema = new mongoose.Schema({
@@ -54,7 +54,7 @@ const userSchema = new mongoose.Schema(
     },
     lastName: {
       type: String,
-      required: [true, "last name is required"],
+      required: [true, "Last name is required"],
       trim: true,
     },
     email: {
@@ -67,21 +67,30 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: [true, "Password is required"],
       minlength: 6,
+      required: function () {
+        return !this.googleId;
+      },
     },
     phone: {
       type: String,
       unique: true,
-      required: [true, "Phone number is required"],
       trim: true,
+      required: function () {
+        return !this.googleId;
+      },
     },
     role: {
       type: String,
       enum: [userRole.ADMIN, userRole.CUSTOMER, userRole.VENDOR],
       default: userRole.CUSTOMER,
     },
-    addresses: [addressSchema], // Array of address sub-documents
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+    addresses: [addressSchema],
     wishlist: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -96,17 +105,16 @@ const userSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  },
-  {
     toJSON: {
-      transform(doc, ret, options) {
+      transform(doc, ret) {
         delete ret.password;
-        delete ret.__v; //mongoose adds __v by default for tracking
+        delete ret.__v;
         return ret;
       },
     },
   }
 );
+
 /* userSchema.index({ email: 1 });
 userSchema.index({ phone: 1 }); */
 

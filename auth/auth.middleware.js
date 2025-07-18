@@ -27,9 +27,7 @@ export const requireAuth = async (req, res, next) => {
     req.user = user;
     next();
   } catch (err) {
-    return next(
-      new ErrorResponse("Token invalid or expired.", StatusCodes.UNAUTHORIZED)
-    );
+    return next(new ErrorResponse("Token invalid or expired.", StatusCodes.UNAUTHORIZED));
   }
 };
 
