@@ -3,6 +3,7 @@ import paymentController from "../controllers/payment.controller.js";
 import validate from "../middlewares/validate.middleware.js";
 import { requireAuth, checkRole } from "../auth/auth.middleware.js";
 import { createPaymentSchema, updatePaymentStatusSchema } from "../validations/payment.validation.js";
+import userRole from "../utils/user.role.js";
 
 const router = express.Router();
 
@@ -11,6 +12,7 @@ const router = express.Router();
  *  Require authentication for all routes
  * ================================
  */
+// for dev
 router.use(requireAuth);
 
 /**
@@ -27,7 +29,7 @@ router.use(requireAuth);
 router
   .route("/")
   .post(
-    checkRole(["user"]),
+    checkRole([userRole.CUSTOMER]),
     validate(createPaymentSchema),
     paymentController.createPayment
   );
@@ -39,7 +41,7 @@ router
  */
 router.get(
   "/user",
-  checkRole(["user"]),
+  checkRole([userRole.CUSTOMER]),
   paymentController.getPaymentsByUser
 );
 
@@ -56,7 +58,7 @@ router.get(
  */
 router.get(
   "/seller",
-  checkRole(["seller"]),
+  checkRole([userRole.VENDOR]),
   paymentController.getPaymentsBySeller
 );
 
@@ -73,7 +75,7 @@ router.get(
  */
 router.get(
   "/",
-  checkRole(["admin"]),
+  checkRole([userRole.ADMIN]),
   paymentController.getAllPayments
 );
 
@@ -84,7 +86,7 @@ router.get(
  */
 router.patch(
   "/:id/status",
-  checkRole(["admin"]),
+  checkRole([userRole.ADMIN]),
   validate(updatePaymentStatusSchema),
   paymentController.updatePaymentStatus
 );
@@ -102,7 +104,6 @@ router.patch(
  */
 router.get(
   "/:id",
-  checkRole(["admin", "seller", "user"]),
   paymentController.getPaymentById
 );
 

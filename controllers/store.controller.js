@@ -2,7 +2,6 @@ import asyncWrapper from "../middlewares/async.wrapper.js";
 import storeService from "../services/store.service.js";
 import JSEND_STATUS from "../utils/http.status.message.js";
 import StatusCodes from "../utils/status.codes.js";
-import AppErrors from "../utils/app.errors.js";
 
 /**
  * Create a new store
@@ -17,7 +16,12 @@ const createStore = asyncWrapper(async (req, res) => {
   const data = req.body;
 
   // Attach the authenticated user as the store owner
+
+  // for prod
   data.owner = req.user._id;
+
+  //for test
+  // data.owner = "64e5a9f831f60c5edc2e0bf2";
 
   // If multer uploaded a file, the info is in req.file
   if (req.file) {
@@ -95,18 +99,16 @@ const getStoreById = asyncWrapper(async (req, res) => {
 const updateStore = asyncWrapper(async (req, res) => {
   const storeId = req.params.storeId;
   const data = req.body;
+// for prod
+  data.owner = req.user._id;
 
+  //for test
+  // data.owner = "64e5a9f831f60c5edc2e0bf2";
   // If a new logo file is uploaded, update the logoUrl
   if (req.file) {
     data.logoUrl = req.file.path; // or req.file.location if you use cloud storage
   }
 
-  // You may want to ensure only the store owner or admin can update
-  // This check depends on your auth setup and is just an example:
-  // const store = await storeService.getStoreById(storeId);
-  // if (store.owner.toString() !== req.user.id && !req.user.isAdmin) {
-  //   throw new AppError("Unauthorized", StatusCodes.UNAUTHORIZED);
-  // }
 
   const updatedStore = await storeService.updateStore(storeId, data);
 
@@ -127,10 +129,14 @@ const updateStore = asyncWrapper(async (req, res) => {
  */
 const deleteStore = asyncWrapper(async (req, res) => {
   const { storeId } = req.params;
+  const deletedStore = await storeService.deleteStore(storeId);
 
-  await storeService.deleteStore(storeId);
+  res.status(StatusCodes.OK).json({
+    status: JSEND_STATUS.SUCCESS,
+    message: "Store deleted successfully",
+    data: deletedStore, // Return the deleted store document if needed
+  });
 
-  res.status(StatusCodes.NO_CONTENT).send();
 });
 
 export default {

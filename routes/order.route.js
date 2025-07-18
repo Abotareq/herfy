@@ -4,12 +4,14 @@ import { requireAuth, checkRole } from "../auth/auth.middleware.js";
 import validate from "../middlewares/validate.middleware.js";
 import upload from "../middlewares/uploade.middleware.js";
 import { createOrderSchema, updateOrderStatusSchema } from "../validations/order.validation.js";
+import userRole from "../utils/user.role.js";
 
 const router = express.Router();
 
 // ====================
 // Global authentication for all order routes
 // ====================
+// for dev
 router.use(requireAuth);
 
 /**
@@ -25,7 +27,7 @@ router.use(requireAuth);
  */
 router.get(
   "/admin/orders",
-  checkRole("admin"),
+  checkRole(userRole.ADMIN),
   orderController.getAllOrders
 );
 
@@ -36,7 +38,7 @@ router.get(
  */
 router.get(
   "/admin/orders/:orderId",
-  checkRole("admin"),
+  checkRole(userRole.ADMIN),
   orderController.getOrderById
 );
 
@@ -47,7 +49,7 @@ router.get(
  */
 router.patch(
   "/admin/orders/:orderId/status",
-  checkRole("admin"),
+  checkRole(userRole.ADMIN),
   validate(updateOrderStatusSchema),
   orderController.updateOrderStatus
 );
@@ -65,7 +67,7 @@ router.patch(
  */
 router.get(
   "/seller/orders",
-  checkRole("seller"),
+  checkRole(userRole.VENDOR),
   orderController.getSellerOrders
 );
 
@@ -80,9 +82,9 @@ router.get(
  * @desc Create new order
  * @access Private (User)
  */
+router.use(checkRole([userRole.VENDOR, userRole.ADMIN]));
 router.post(
   "/",
-  checkRole("user"),
   validate(createOrderSchema),
   orderController.createOrder
 );
@@ -94,7 +96,6 @@ router.post(
  */
 router.get(
   "/",
-  checkRole("user"),
   orderController.getUserOrders
 );
 
@@ -105,7 +106,6 @@ router.get(
  */
 router.get(
   "/:orderId",
-  checkRole("user"),
   orderController.getMyOrderById
 );
 
@@ -116,7 +116,6 @@ router.get(
  */
 router.delete(
   "/:orderId",
-  checkRole("user"),
   orderController.deleteOrder
 );
 
@@ -127,7 +126,6 @@ router.delete(
  */
 router.patch(
   "/:orderId/cancel",
-  checkRole("user"),
   orderController.cancelOrder
 );
 
@@ -138,7 +136,6 @@ router.patch(
  */
 router.patch(
   "/:orderId/items/:itemId",
-  checkRole("user"),
   upload.single("image"),
   orderController.updateOrderItems
 );

@@ -1,29 +1,14 @@
-// {
-//   name: "  قلة سوهاجبة فاخرة",
-//   slug: "قلة",
-//   basePrice: 120,
-//   variants: [
-//     {
-//       name: "Color",
-//       options: [
-//         { value: "Red", priceModifier: 10, stock: 5, sku: "QU-RED" },
-//         { value: "Blue", priceModifier: 0, stock: 8, sku: "QU-BLU" }
-//       ]
-//     }
-//   ]
-// }
-
 import mongoose from 'mongoose';
 import slugify from 'slugify';
 
-// Sub-document => Color (Red, Blue) and Size (Small, Large)
 const variantSchema = new mongoose.Schema({
-  name: String, // e.g., "Color"
+  name: String,
+  isDeleted: { type: Boolean, default: false },
   options: [{
-    value: String, // e.g., "Red", "Large"
-    priceModifier: { type: Number, default: 0 }, // To add cost for certain options
+    value: String,
+    priceModifier: { type: Number, default: 0 },
     stock: Number,
-    sku: String, // Unique Stock => (serial number) 
+    sku: String,
   }],
 });
 
@@ -43,9 +28,19 @@ const productSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  basePrice: { // The starting price of the product
+  basePrice: {
     type: Number,
     required: true,
+  },
+  discountPrice: { //added
+    type: Number,
+    default: 0,
+  },
+  discountStart: { //added
+    type: Date,
+  },
+  discountEnd: { //added
+    type: Date,
   },
   category: {
     type: mongoose.Schema.Types.ObjectId,
@@ -53,7 +48,7 @@ const productSchema = new mongoose.Schema({
     ref: 'Category',
   },
   images: [{ type: String }],
-  variants: [variantSchema], // Array of variant sub-documents
+  variants: [variantSchema],
   averageRating: {
     type: Number,
     default: 0,
@@ -61,7 +56,13 @@ const productSchema = new mongoose.Schema({
   reviewCount: {
     type: Number,
     default: 0,
-  }
+  },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+  },
+  isDeleted: { type: Boolean, default: false }
 }, {
   timestamps: true,
 });

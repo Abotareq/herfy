@@ -1,4 +1,4 @@
-import Coupon from "../models/cuponModel.js";
+import {Coupon} from "../models/cuponModel.js";
 
 /**
  * Get a coupon by ID.

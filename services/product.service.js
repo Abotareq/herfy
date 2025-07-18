@@ -1,65 +1,11 @@
-
+import Category from "../models/categoryModel.js";
 import Product from "../models/productModel.js";
 import mongoose from "mongoose";
-/**
- * Returns the MongoDB sort object based on the given sort key.
- *
- * @param {string} sort - The sort key indicating the sorting criteria.
- * Supported values:
- *   - "popularity_desc": Sort by reviewCount descending (most popular first)
- *   - "popularity_asc": Sort by reviewCount ascending
- *   - "rating_desc": Sort by averageRating descending (highest rating first)
- *   - "rating_asc": Sort by averageRating ascending
- *   - "latest": Sort by createdAt descending (newest first)
- *   - "oldest": Sort by createdAt ascending (oldest first)
- *   - "price_asc": Sort by price ascending (lowest price first)
- *   - "price_desc": Sort by price descending (highest price first)
- *
- * @returns {Object} MongoDB sort object, e.g. { fieldName: 1 } or { fieldName: -1 }.
- * Defaults to sorting by createdAt descending if the sort key is invalid or missing.
- */
-const getSortOption = (sort) => {
-  const sortOptionsMap = {
-    popularity_desc: { reviewCount: -1 },
-    popularity_asc: { reviewCount: 1 },
-    rating_desc: { averageRating: -1 },
-    rating_asc: { averageRating: 1 },
-    newest: { createdAt: -1 },
-    oldest: { createdAt: 1 },
-    price_asc: { basePrice: 1 },
-    price_desc: { basePrice: -1 },
-  };
-  
-  return sortOptionsMap[sort] || { createdAt: -1 };
-};
-/**
- * Builds the query object for product filters.
- *
- * @param {object} filters - Filters to apply.
- * @param {string} [filters.category] - Category ID.
- * @param {string} [filters.search] - Search string for product name.
- * @param {string} [filters.color] - Color filter.
- * @param {string} [filters.size] - Size filter.
- * @param {number} [filters.minPrice] - Minimum price.
- * @param {number} [filters.maxPrice] - Maximum price.
- * @returns {object} - The MongoDB query object.
- */
-const buildProductFilterQuery = ({ category, search, color, size, minPrice, maxPrice }) => {
-  const query = {};
-
-  if (search) query.name = { $regex: search, $options: "i" };
-  if (category) query.category = category;
-  if (color) query["variants.options.value"] = color;
-  if (size) query["variants.options.value"] = size;
-
-  if (minPrice || maxPrice) {
-    query.basePrice = {};
-    if (minPrice) query.basePrice.$gte = parseFloat(minPrice);
-    if (maxPrice) query.basePrice.$lte = parseFloat(maxPrice);
-  }
-
-  return query;
-};
+import Store from "../models/storeModel.js";
+import AppErrors from "../utils/app.errors.js";
+import slugify from "slugify";
+import { buildProductFilterQuery } from "../utils/filter_method.js";
+import { getSortOption } from "../utils/sort.method.js";
 
 /**
  * Retrieves all products with filters, sorting, and pagination.
@@ -94,25 +40,54 @@ const getAllProducts = async ({
   page = 1,
   limit = 10,
   category,
+  storeId,
   search,
   color,
   size,
   minPrice,
   maxPrice,
-  sort
+  sort,
 }) => {
-  const query = buildProductFilterQuery({ category, search, color, size, minPrice, maxPrice });
+  const query = buildProductFilterQuery({
+    category,
+    search,
+    color,
+    size,
+    minPrice,
+    maxPrice,
+  });
+
+  if (storeId) {
+    query.store = storeId;
+  }
 
   const sortOption = getSortOption(sort);
-  
-  const totalProducts = await Product.countDocuments(query);
-  const totalPages = Math.ceil(totalProducts / limit);
-  console.log('sort param:', sort);
-  console.log('sort option:', sortOption);
-  const products = await Product.find(query)
+
+  const countPromise = Product.countDocuments({
+    isDeleted: false,
+    ...query,
+  });
+
+  const productsPromise = Product.find({ isDeleted: false, ...query })
+    .populate("category", "name slug")
+    .populate("store", "name slug")
     .sort(sortOption)
     .skip((page - 1) * limit)
     .limit(limit);
+
+  const [totalProducts, products] = await Promise.all([
+    countPromise,
+    productsPromise,
+  ]);
+
+  const totalPages = Math.ceil(totalProducts / limit);
+
+  // Filter out soft-deleted variants before returning
+  products.forEach(product => {
+    if (product.variants) {
+      product.variants = product.variants.filter(v => !v.isDeleted);
+    }
+  });
 
   return { products, totalProducts, totalPages, currentPage: page, limit };
 };
@@ -124,11 +99,19 @@ const getAllProducts = async ({
  * @returns {Promise<object>} - The product document.
  * @throws {AppError} - Throws if not found.
  */
-const getProductById = async (id) => {
-  const product = await Product.findById(id).lean();
-  // const reviews = await Review.find({ product: productId }).populate("user", "name");
-  if (!product) throw appErrors.notFound("Product not found");
-  return { ...product };
+const getProductById = async (productId) => {
+  const product = await Product.findById(productId)
+    .where({ isDeleted: false })
+    .populate("category", "name slug");
+
+  if (!product) throw AppErrors.notFound("Product not found");
+
+  // Filter out soft-deleted variants before returning
+  if (product.variants) {
+    product.variants = product.variants.filter(v => !v.isDeleted);
+  }
+
+  return product;
 };
 
 /**
@@ -155,19 +138,40 @@ const searchProducts = async ({
   size,
   minPrice,
   maxPrice,
-  sort, // pass sort here
+  sort,
 }) => {
-  const filterQuery = buildProductFilterQuery({ category, search: query, color, size, minPrice, maxPrice });
+  const filterQuery = buildProductFilterQuery({
+    category,
+    search: query,
+    color,
+    size,
+    minPrice,
+    maxPrice,
+  });
 
-  const totalProducts = await Product.countDocuments(filterQuery);
-  const totalPages = Math.ceil(totalProducts / limit);
+  const sortOption = getSortOption(sort);
 
-  const sortOption = getSortOption(sort); // use your method here
+  const countPromise = Product.countDocuments(filterQuery);
 
-  const products = await Product.find(filterQuery)
+  const productsPromise = Product.find({ isDeleted: false, ...filterQuery })
     .sort(sortOption)
     .skip((page - 1) * limit)
-    .limit(limit);
+    .limit(limit)
+    .populate("category", "name slug");
+
+  const [totalProducts, products] = await Promise.all([
+    countPromise,
+    productsPromise,
+  ]);
+
+  const totalPages = Math.ceil(totalProducts / limit);
+
+  // Filter out soft-deleted variants before returning
+  products.forEach(product => {
+    if (product.variants) {
+      product.variants = product.variants.filter(v => !v.isDeleted);
+    }
+  });
 
   return { products, totalProducts, totalPages, currentPage: page, limit };
 };
@@ -181,45 +185,290 @@ const searchProducts = async ({
  * @returns {Promise<object>} - The created product.
  */
 
-const createProduct = async (data, file) => {
-  if (file) data.images = file.filename; // adjust based on multer storage config
-  const product = new Product(data);
-  return await product.save();
+const createProduct = async (data, file, userId) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    if (file) {
+      data.images = [file.filename];
+    }
+
+    //  Price validation
+    if (data.basePrice < 0) {
+      throw AppErrors.badRequest("Base price cannot be negative");
+    }
+    if (data.discountPrice && data.discountPrice >= data.basePrice) {
+      throw AppErrors.badRequest("Discount price must be less than base price");
+    }
+
+    // Generate slug
+    data.slug = slugify(data.name, { lower: true });
+
+    data.createdBy = userId;
+
+    const store = await Store.findById(data.store).session(session);
+    if (!store) throw AppErrors.notFound("Store not found");
+
+    if (store.owner.toString() !== userId.toString()) {
+      throw AppErrors.unauthorized(
+        "You are not authorized to add products to this store"
+      );
+    }
+
+    // Check if category exists for dev
+    const category = await Category.findById(data.category).session(session);
+    if (!category) throw AppErrors.notFound("Category not found");
+    // soft deleted
+    // if (category.isDeleted) {
+    //   throw AppErrors.badRequest("Category has been deleted");
+    // }
+
+    //Check for existing product with same name in the same store
+    const existingProduct = await Product.findOne({
+      store: data.store,
+      slug: data.slug,
+    }).session(session);
+
+    if (existingProduct) {
+      throw AppErrors.badRequest(
+        "Product with this name already exists in this store"
+      );
+    }
+    const product = await Product.create([data], { session });
+
+    // Update store's products array
+    await Store.findByIdAndUpdate(
+      data.store,
+      { $inc:{productCount: 1} },
+      { session }
+    );
+
+    // Increment category product count
+    // for dev
+    await Category.findByIdAndUpdate(
+      data.category,
+      { $inc: { productCount: 1 } },
+      { session }
+    );
+
+    await session.commitTransaction();
+    session.endSession();
+
+    return product[0];
+  } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
+    throw AppErrors.badRequest(err.message);
+  }
 };
 
+const updateProduct = async (productId, updateData, file, userId) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-const updateProduct = async (productId, updateData, file) => {
-  const product = await Product.findById(productId);
-  if (!product) {
-    throw new appErrors("Product not found", StatusCodes.NOT_FOUND);
+  try {
+    const product = await Product.findById(productId).session(session);
+    if (!product) throw AppErrors.notFound("Product not found");
+
+    //  Price validation
+    if (updateData.basePrice < 0) {
+      throw AppErrors.badRequest("Base price cannot be negative");
+    }
+    if (
+      updateData.discountPrice &&
+      updateData.discountPrice >= (updateData.basePrice || product.basePrice)
+    ) {
+      throw AppErrors.badRequest("Discount price must be less than base price");
+    }
+
+    //  Category validation and productCount adjustment
+
+    // for dev
+    if (updateData.category) {
+      const category = await Category.findById(updateData.category).session(
+        session
+      );
+      if (!category) throw AppErrors.notFound("Category not found");
+      // if (category.isDeleted) {
+      //   throw AppErrors.badRequest("Category has been deleted");
+      // }
+
+      if (product.category.toString() !== updateData.category.toString()) {
+        // Decrement old category count
+        await Category.findByIdAndUpdate(
+          product.category,
+          { $inc: { productCount: -1 } },
+          { session }
+        );
+        // Increment new category count
+        await Category.findByIdAndUpdate(
+          updateData.category,
+          { $inc: { productCount: 1 } },
+          { session }
+        );
+      }
+    }
+
+    //  Store change logic
+    if (
+      updateData.store &&
+      updateData.store.toString() !== product.store.toString()
+    ) {
+      const newStore = await Store.findById(updateData.store).session(session);
+      if (!newStore) throw AppErrors.notFound("New store not found");
+
+      //  Optional: Check user owns the new store
+      if (newStore.owner.toString() !== userId.toString()) {
+        throw AppErrors.unauthorized(
+          "You are not authorized to move product to this store"
+        );
+      }
+
+      //  Remove product from old store
+      await Store.findByIdAndUpdate(
+        product.store,
+        { $inc: { productCount: -1 } },
+        { session }
+      );
+
+      //  Add product to new store
+      await Store.findByIdAndUpdate(
+        updateData.store,
+        {$inc :{productCount : 1} },
+        { session }
+      );
+
+      // Update store field in product
+      product.store = updateData.store;
+    }
+
+    //  Slug update with uniqueness check inside new store
+    if (updateData.name) {
+      const newSlug = slugify(updateData.name, { lower: true });
+
+      const duplicate = await Product.findOne({
+        _id: { $ne: productId },
+        store: product.store,
+        slug: newSlug,
+      }).session(session);
+
+      if (duplicate) {
+        throw AppErrors.badRequest(
+          "Product with this name already exists in this store"
+        );
+      }
+
+      product.slug = newSlug;
+    }
+
+    // Image update
+    if (file) {
+      product.images = [file.filename];
+    }
+
+    //  isDeleted update
+    if (updateData.isDeleted !== undefined) {
+      product.isDeleted = updateData.isDeleted;
+    }
+
+    // Allowed fields update
+    const allowedUpdates = [
+      "name",
+      "description",
+      "basePrice",
+      "category",
+      "variants",
+      "discountPrice",
+      "discountStart",
+      "discountEnd",
+      "stock",
+      "store", // Allow store update here
+    ];
+
+    Object.keys(updateData).forEach((key) => {
+      if (allowedUpdates.includes(key)) {
+        product[key] = updateData[key];
+      }
+    });
+
+    await product.save({ session });
+
+    await session.commitTransaction();
+    session.endSession();
+    return product;
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    throw AppErrors.badRequest(error.message);
   }
+};
 
-  // If there's an uploaded image file, update product's image URL/path
-  if (file) {
-    updateData.imageUrl = file.path; // or file.location if cloud storage like S3
+// SOFT DELETE PRODUCT
+const SoftDeleteProduct = async (productId, userId) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const product = await Product.findById(productId).session(session);
+    if (!product) throw AppErrors.notFound("Product not found");
+
+    product.isDeleted = true;
+    product.updatedBy = userId;
+
+    
+
+    await product.save({ session });
+
+    await session.commitTransaction();
+    session.endSession();
+    return product;
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    throw error;
   }
-
-  // Update product fields with new data
-  Object.keys(updateData).forEach((key) => {
-    product[key] = updateData[key];
-  });
-
-  // Save updated product
-  await product.save();
-
-  return product;
 };
 
 /**
- * Deletes a product by ID.
+ * hard Deletes a product by ID.
  *
  * @param {string} id - Product ID.
  * @returns {Promise<void>}
  * @throws {AppError} - Throws if not found.
  */
 const deleteProduct = async (id) => {
-  const result = await Product.findByIdAndDelete(id);
-  if (!result) throw appErrors.notFound("Product not found");
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const product = await Product.findById(id).session(session);
+    if (!product) throw AppErrors.notFound("Product not found");
+
+    // Delete product
+    await Product.deleteOne({ _id: id }).session(session);
+
+    // Remove from store.products array if applicable
+    await Store.findByIdAndUpdate(
+      product.store,
+      { $inc: { productCount: -1 } },
+      { session }
+    );
+
+    // Decrement productCount in category
+    await Category.findByIdAndUpdate(
+      product.category,
+      { $inc: { productCount: -1 } },
+      { session }
+    );
+
+    await session.commitTransaction();
+    session.endSession();
+  } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
+    throw err;
+  }
 };
 
 /**
@@ -232,22 +481,50 @@ const deleteProduct = async (id) => {
  */
 const addVariant = async (productId, variantData) => {
   const product = await Product.findById(productId);
-  if (!product) throw appErrors.notFound("Product not found");
+  if (!product) throw AppErrors.notFound("Product not found");
 
   const existingVariant = product.variants.find(
     (v) => v.name.toLowerCase() === variantData.name.toLowerCase()
   );
 
   if (existingVariant) {
-    // Merge options
-    existingVariant.options = existingVariant.options.concat(variantData.options);
+    const existingOptionsValues = existingVariant.options.map((opt) =>
+      opt.value.toLowerCase()
+    );
+
+    // Filter only new options not already present
+    const newOptions = variantData.options.filter(
+      (opt) => !existingOptionsValues.includes(opt.value.toLowerCase())
+    );
+
+    if (newOptions.length === 0) {
+      // Early return without saving if no changes
+      return {
+        product,
+        message: "Variant exists and all provided options already exist. No update performed.",
+      };
+    }
+
+    // Merge only new options
+    existingVariant.options.push(...newOptions);
+
+    await product.save();
+    return {
+      product,
+      message: `Variant exists. Added ${newOptions.length} new option(s).`,
+    };
   } else {
     product.variants.push(variantData);
+    await product.save();
+    return {
+      product,
+      message: "Variant added successfully.",
+    };
   }
-
-  await product.save();
-  return product;
 };
+
+
+
 /**
  * Updates a variant of a product.
  *
@@ -258,15 +535,56 @@ const addVariant = async (productId, variantData) => {
  * @throws {AppError} - Throws if product or variant not found.
  */
 const updateVariant = async (productId, variantId, variantData) => {
-  const product = await Product.findById(productId);
-  if (!product) throw appErrors.notFound("Product not found");
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  const variant = product.variants.id(variantId);
-  if (!variant) throw appErrors.notFound("Variant not found");
+  try {
+    const product = await Product.findById(productId).session(session);
+    if (!product) throw AppErrors.notFound("Product not found");
 
-  variant.set(variantData);
-  await product.save();
-  return product;
+    const variant = product.variants.id(variantId);
+    if (!variant) throw AppErrors.notFound("Variant not found");
+
+    // Update name if provided
+    if (variantData.name) {
+      variant.name = variantData.name;
+    }
+
+    // Update or add options
+    if (variantData.options && Array.isArray(variantData.options)) {
+      variantData.options.forEach(newOpt => {
+        // Validate newOpt structure
+        if (!newOpt.value) {
+          throw AppErrors.badRequest("Option value is required");
+        }
+
+        const existingOpt = variant.options.find(
+          opt => opt.value.toLowerCase() === newOpt.value.toLowerCase()
+        );
+
+        if (existingOpt) {
+          // Update existing option fields if provided
+          if ("priceModifier" in newOpt) existingOpt.priceModifier = newOpt.priceModifier;
+          if ("stock" in newOpt) existingOpt.stock = newOpt.stock;
+          if ("sku" in newOpt) existingOpt.sku = newOpt.sku;
+        } else {
+          // ➕ Add new option
+          variant.options.push(newOpt);
+        }
+      });
+    }
+
+    await product.save({ session });
+    await session.commitTransaction();
+    session.endSession();
+
+    return variant; // Return updated variant only
+
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    throw error;
+  }
 };
 
 /**
@@ -278,19 +596,30 @@ const updateVariant = async (productId, variantId, variantData) => {
  * @throws {AppError} - Throws if product or variant not found.
  */
 const deleteVariant = async (productId, variantId) => {
-  const product = await Product.findById(productId);
-  if (!product) throw appErrors.notFound("Product not found");
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  const variant = product.variants.id(variantId);
-  if (!variant) throw appErrors.notFound("Variant not found");
+  try {
+    const product = await Product.findById(productId).session(session);
+    if (!product) throw AppErrors.notFound("Product not found");
 
-  console.log(typeof variant);  // Should be 'object'
-  console.log(variant instanceof mongoose.Document);  // Should be true
-  console.log(variant.remove); // Should NOT be undefined
+    const variant = product.variants.id(variantId);
+    if (!variant) throw AppErrors.notFound("Variant not found");
 
+    // Soft delete by marking isDeleted true
+    variant.isDeleted = true;
 
-  product.variants.pull(variantId);
-  await product.save();
+    await product.save({ session });
+    await session.commitTransaction();
+    return { message: "Variant marked as deleted successfully" };
+
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+
+  } finally {
+    session.endSession();
+  }
 };
 
 /**
@@ -303,23 +632,24 @@ const deleteVariant = async (productId, variantId) => {
  */
 const addImages = async (productId, files) => {
   const product = await Product.findById(productId);
-  if (!product) throw appErrors.notFound("Product not found");
+  if (!product) throw AppErrors.notFound("Product not found");
 
-  const imagePaths = files.map(file => file.filename);
+  const imagePaths = files.map((file) => file.filename);
   product.images.push(...imagePaths);
   await product.save();
   return product;
 };
 
-export default{
-    createProduct,
-    getAllProducts,
-    getProductById,
-    searchProducts,
-    updateProduct,
-    deleteProduct,
-    addVariant,
-    deleteVariant,
-    updateVariant,
-    addImages
-}
+export default {
+  createProduct,
+  getAllProducts,
+  getProductById,
+  searchProducts,
+  updateProduct,
+  deleteProduct,
+  addVariant,
+  deleteVariant,
+  updateVariant,
+  addImages,
+  SoftDeleteProduct,
+};
