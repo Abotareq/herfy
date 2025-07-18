@@ -44,6 +44,16 @@ const paymentSchema = new mongoose.Schema({
   transactionId: String, // From payment provider
   provider: String, // visa, PayPal
   error: String, // Error message if failed
+  // new 
+  stripeSessionId: {
+    type: String,
+    default: null,
+  }, // For linking Stripe Checkout session IDs
+
+  refundedAt: {
+    type: Date,
+    default: null,
+  }, // When payment was refunded
 }, {
   timestamps: true,
 });
