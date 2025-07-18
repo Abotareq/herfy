@@ -88,6 +88,11 @@ const userSchema = new mongoose.Schema(
         ref: "Product",
       },
     ],
+    storesCount: { type: Number, default: 0 }, // to track how many stores the user has
+    // for create order
+    ordersCount: { type: Number, default: 0 }, // to track how many orders the user has
+    cancelledOrders: {type: Number, default: 0 }, // to track how many orders the user has cancelled
+    activeOrders:{type: Number, default: 0}, // to track how many active orders the user has
   },
   {
     timestamps: true,
