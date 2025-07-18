@@ -67,6 +67,6 @@ router.route("/:storeId")
     validate(updateStoreSchema),
     storeController.updateStore
   )
-  .delete(checkRole[userRole.ADMIN , userRole.VENDOR],storeController.deleteStore);
+  .delete(checkRole([userRole.ADMIN , userRole.VENDOR]),storeController.deleteStore);
 
 export default router;
