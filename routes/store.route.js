@@ -5,6 +5,7 @@ import upload from "../middlewares/uploade.middleware.js";
 import { requireAuth, checkRole } from "../auth/auth.middleware.js";
 import { createStoreSchema, updateStoreSchema } from "../validations/store.validation.js";
 import storeParserMiddleware from "../middlewares/store.parse.js";
+import userRole from "../utils/user.role.js";
 
 const router = express.Router();
 
@@ -30,13 +31,14 @@ router.get("/:storeId", storeController.getStoreById);
 
 /**
  * ================================
- * 🔐 PRIVATE ROUTES (Owner, Admin)
+ *  PRIVATE ROUTES (Owner, Admin)
  * ================================
  */
 
 // Global authentication & authorization for routes below
+
+//for prod
 router.use(requireAuth);
-router.use(checkRole(["owner", "admin"]));
 
 /**
  * @route /stores
@@ -47,6 +49,7 @@ router.route("/")
   .post(
     upload.single("logoUrl"),
     storeParserMiddleware,
+    checkRole([userRole.VENDOR]),
     validate(createStoreSchema),
     storeController.createStore
   );
@@ -60,9 +63,10 @@ router.route("/:storeId")
   .patch(
     upload.single("image"),
     storeParserMiddleware,
+    checkRole([userRole.VENDOR]),
     validate(updateStoreSchema),
     storeController.updateStore
   )
-  .delete(storeController.deleteStore);
+  .delete(checkRole([userRole.ADMIN , userRole.VENDOR]),storeController.deleteStore);
 
 export default router;

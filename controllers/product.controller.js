@@ -4,7 +4,6 @@ import asyncWrapper from "../middlewares/async.wrapper.js";
 import productService from "../services/product.service.js"
 import JSEND_STATUS from "../utils/http.status.message.js";
 import StatusCodes from "../utils/status.codes.js";
-import AppErrors from "../utils/app.errors.js";
 
 /**
  * Get all products with optional filters, pagination, and search.
@@ -38,21 +37,16 @@ const getProductById = asyncWrapper(async (req, res) => {
  * @param {File} req.file - Optional product image.
  * @returns {Object} Created product.
  */
-const createProduct = asyncWrapper(async (req, res,next) => {
-  // TODO: Add validation before service call
+// For test
+// const userId = "64e5a9f831f60c5edc2e0bf2"
+const createProduct = asyncWrapper(async (req, res) => {
 
-  try {
-    console.log("create")
-    //  Handle image upload path if uploaded
-    if (req.file) {
-      req.body.images = [req.file.path];
-    }
     req.body.basePrice = Number(req.body.basePrice);
-    const createdProduct = await productService.createProduct(req.body);
-    res.status(201).json({ status: 'success', data: createdProduct });
-  } catch (err) {
-    next(AppErrors.badRequest(err.message));
-  }
+    // for test
+    // const createdProduct = await productService.createProduct(req.body  , req.file ,userId);
+    // for dev
+    const createdProduct = await productService.createProduct(req.body  , req.file , req.user._id);
+    res.status(201).json({ status: 'success', data: createdProduct })
 });
 
 /**
@@ -71,7 +65,8 @@ const searchProducts = asyncWrapper(async (req, res) => {
     color: req.query.color,
     size: req.query.size,
     minPrice: req.query.minPrice,
-    maxPrice: req.query.maxPrice
+    maxPrice: req.query.maxPrice,
+    sort: req.query.sort
   });
   res.status(StatusCodes.OK).json({ status: JSEND_STATUS.SUCCESS, ...data });
 });
@@ -86,8 +81,13 @@ const searchProducts = asyncWrapper(async (req, res) => {
  * @returns {Object} Updated product.
  */
 const updateProduct = asyncWrapper(async (req, res) => {
-  // TODO: Add validation before service call
-  const product = await productService.updateProduct(req.params.productId, req.body, req.file);
+  //  Add validation before service call
+
+  // for dev
+  const product = await productService.updateProduct(req.params.productId, req.body, req.file ,req.user._id);
+  
+  // for test
+  // const product = await productService.updateProduct(req.params.productId, req.body, req.file ,userId);
   res.status(StatusCodes.OK).json({ status: JSEND_STATUS.SUCCESS, data: product });
 });
 
@@ -112,7 +112,7 @@ const deleteProduct = asyncWrapper(async (req, res) => {
  * @returns {Object} Updated product with new variant.
  */
 const addVariant = asyncWrapper(async (req, res) => {
-  // TODO: Add validation for variant data
+  // Add validation for variant data
   const product = await productService.addVariant(req.params.productId, req.body);
   res.status(StatusCodes.CREATED).json({ status: JSEND_STATUS.SUCCESS, data: product });
 });
@@ -158,6 +158,19 @@ const addImages = asyncWrapper(async (req, res) => {
   res.status(StatusCodes.CREATED).json({ status: JSEND_STATUS.SUCCESS, data: product });
 });
 
+/**
+ * Soft delete a product by its ID.
+ * @route PATCH /api/v1/products/:productId/soft-delete
+ * @access Private (requires authorization)
+ * @param {string} req.params.productId - Product ID.
+ * @returns {Object} Soft deleted product.
+ */
+const softDeleteProduct = asyncWrapper(async (req, res) => {
+  const product = await productService.SoftDeleteProduct(req.params.productId, req.user._id);
+  res.status(StatusCodes.OK).json({ status: JSEND_STATUS.SUCCESS, data: product });
+});
+
+
 export default{
     createProduct,
     getAllProducts,
@@ -168,5 +181,6 @@ export default{
     addVariant,
     deleteVariant,
     updateVariant,
-    addImages
+    addImages,
+    softDeleteProduct
 }

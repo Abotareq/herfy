@@ -42,6 +42,11 @@ const cartSchema = new mongoose.Schema({
     variant: {
       type: Map,
       of: String, // e.g., { "Color": "Red", "Size": "Large" }
+    },
+    price: {
+      type: Number,
+      required: true,
+      min: 0
     }
   }],
   coupon: {
@@ -62,8 +67,15 @@ const cartSchema = new mongoose.Schema({
     type: Number,
     default: 0,
     min: 0
-  }
-}, {
+  },
+  isDeleted: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
+}
+
+, {
   timestamps: true
 });
 

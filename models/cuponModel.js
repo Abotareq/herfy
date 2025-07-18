@@ -41,9 +41,13 @@ const couponSchema = new mongoose.Schema({
   active: {
     type: Boolean,
     default: true
-  }
+  },
+  isDeleted: {
+    type: Boolean,
+    default: false
+  },
 }, {
   timestamps: true
 });
 
-export default mongoose.model('Coupon', couponSchema);
+export const Coupon = mongoose.model('Coupon', couponSchema);

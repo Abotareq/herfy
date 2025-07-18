@@ -1,20 +1,3 @@
-// example
-// {
-//   "owner": "665d1b8fd5e1b2c5d9a66f12",
-//   "name": "ZStore",
-//   "description": "montagat from sohag",
-//   "logoUrl": "/logos/ZStore.png",
-//   "location": {
-//     "type": "Point",
-//     "coordinates": [31.2357, 30.0444]
-//   },
-//   "policies": {
-//     "shipping": "We ship in 2-3 days inside sohag.",
-//     "returns": "Returns allowed within 7 days with receipt."
-//   }
-// }
-
-
 import mongoose from 'mongoose';
 import slugify from 'slugify';
 
@@ -31,17 +14,8 @@ const storeSchema = new mongoose.Schema({
     unique: true,
   },
 
-
-  //Slug => to create clean and descriptive web addresses 
-  //Without a slug: herafy.net/category/667f2d3b5e4a8c1f9b0e1a2b 
-  //With a slug: herafy.net/category/handmade-jewelry 
-
-//   Input: Handmade Jewelry
-// Output: handmade-jewelry
-
-  slug: String, 
-
-
+  // Slug => clean SEO URL from name
+  slug: String,
 
   description: {
     type: String,
@@ -49,12 +23,12 @@ const storeSchema = new mongoose.Schema({
   },
   logoUrl: String,
 
-  // status => Allows an admin to approve, reject, or suspend a store.
   status: {
     type: String,
     enum: ['pending', 'approved', 'rejected', 'suspended'],
     default: 'pending',
   },
+
   location: {
     type: {
       type: String,
@@ -66,15 +40,25 @@ const storeSchema = new mongoose.Schema({
       index: '2dsphere',
     },
   },
+
+  //store related modles 
+  categorieCount: { type: Number, default: 0 },
+  couponsUsed: { type: Number, default: 0 },
+  productCount: { type: Number, default: 0 },
+  ordersCount: { type: Number, default: 0 },
+
   policies: {
     shipping: String,
     returns: String,
-  }
+  },
+
+  isDeleted: { type: Boolean, default: false }
+
 }, {
   timestamps: true,
 });
 
-// Create store slug from the name
+// Generate slug before saving
 storeSchema.pre('save', function(next) {
   this.slug = slugify(this.name, { lower: true });
   next();

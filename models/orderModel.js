@@ -66,19 +66,24 @@ const orderSchema = new mongoose.Schema({
   type: mongoose.Schema.Types.ObjectId,
   ref: 'Payment',
 },
-
+  coupon: { type: mongoose.Schema.Types.ObjectId, ref: 'Coupon' },
   subtotal: { type: Number, required: true },
   shippingFee: { type: Number, required: true, default: 0 },
   tax: { type: Number, required: true, default: 0 },
   totalAmount: { type: Number, required: true },
   status: {
     type: String,
-    enum: ['pending', 'paid', 'processing', 'shipped', 'delivered', "cancelled", "payment_failed"],
+    enum: ['pending', 'paid', 'processing', 'shipped', 'delivered', "cancelled", "payment_failed", "refunded"],
     default: 'pending',
   },
   paidAt: Date,
   shippedAt: Date,
   deliveredAt: Date,
+  storeDeleted: {
+    type: Boolean,
+    default: false, // Indicates if the store related to this order has been deleted
+  },
+  storeDeletedAt: Date, // Timestamp when the store was deleted
 }, {
   timestamps: true,
 });

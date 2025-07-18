@@ -8,10 +8,12 @@ import {
   updateCartSchema,
   applyCouponSchema
 } from "../validations/cart.validation.js";
+import userRole from "../utils/user.role.js";
 
 const router = express.Router();
 
 // Apply global authentication
+// for dev
 router.use(requireAuth);
 
 /**
@@ -24,21 +26,21 @@ router.use(requireAuth);
 router
   .route("/")
   .post(
-    checkRole(["user"]),
+    checkRole([userRole.CUSTOMER]),
     validate(createOrUpdateCartSchema),
     cartController.createOrUpdateCart
   )
   .patch(
-    checkRole(["user"]),
+    checkRole([userRole.CUSTOMER]),
     validate(updateCartSchema),
     cartController.updateCart
   )
   .get(
-    checkRole(["user", "admin"]),
+    checkRole([userRole.CUSTOMER, userRole.ADMIN]),
     cartController.getCartByUserId
   )
   .delete(
-    checkRole(["user", "admin"]),
+    checkRole([userRole.CUSTOMER, userRole.ADMIN]),
     cartController.deleteCart
   );
 
@@ -49,7 +51,7 @@ router
 router
   .route("/items")
   .post(
-    checkRole(["user"]),
+    checkRole([userRole.CUSTOMER]),
     validate(addItemSchema),
     cartController.addItemToCart
   );
@@ -61,7 +63,7 @@ router
 router
   .route("/items/:productId")
   .delete(
-    checkRole(["user"]),
+    checkRole([userRole.CUSTOMER]),
     cartController.removeItemFromCart
   );
 
@@ -72,7 +74,7 @@ router
 router
   .route("/apply-coupon")
   .post(
-    checkRole(["user"]),
+    checkRole([userRole.CUSTOMER]),
     validate(applyCouponSchema),
     cartController.applyCoupon
   );
@@ -87,7 +89,7 @@ router
 router
   .route("/all-carts")
   .get(
-    checkRole(["admin"]),
+    checkRole([userRole.ADMIN]),
     cartController.getAllCarts
   );
 

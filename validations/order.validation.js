@@ -93,16 +93,6 @@ export const createOrderSchema = Joi.object({
             return value;
           }, "ObjectId Validation")
           .required(),
-
-        store: Joi.string()
-          .custom((value, helpers) => {
-            if (!isValidObjectId(value)) {
-              return helpers.error("any.invalid");
-            }
-            return value;
-          }, "ObjectId Validation")
-          .required(),
-
         quantity: Joi.number().min(1).required(),
       })
     )
@@ -124,12 +114,6 @@ export const createOrderSchema = Joi.object({
       return value;
     }, "ObjectId Validation")
     .required(),
-
-  subtotal: Joi.number().min(0).required(),
-  shippingFee: Joi.number().min(0).required(),
-  tax: Joi.number().min(0).required(),
-  totalAmount: Joi.number().min(0).required(),
-
   status: Joi.string()
     .valid("pending", "paid", "processing", "shipped", "delivered", "cancelled")
     .default("pending"),

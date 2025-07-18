@@ -31,7 +31,6 @@ export const createPaymentSchema = Joi.object({
     }
     return value;
   }, "ObjectId Validation"),
-  amount: Joi.number().required(),
   paymentMethod: Joi.string()
     .valid("credit_card", "paypal", "cash_on_delivery")
     .required(),
