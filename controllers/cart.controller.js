@@ -1,8 +1,7 @@
 import cartService from "../services/cart.service.js";
 import StatusCodes from "../utils/status.codes.js";
 import asyncWrapper from "../middlewares/async.wrapper.js";
-import Cart from "../models/cartModel.js";
-import Coupon from "../models/cuponModel.js";
+import JSEND_STATUS from "../utils/http.status.message.js";
 
 /**
  * @description Apply a coupon code to the user's cart
@@ -15,39 +14,12 @@ const applyCoupon = asyncWrapper(async (req, res) => {
   const userId = req.user.id;
   const { code } = req.body;
 
-  const coupon = await Coupon.findOne({ code });
-
-  if (!coupon) {
-    return res.status(StatusCodes.NOT_FOUND).json({
-      status: "error",
-      message: "Coupon not found",
-    });
-  }
-
-  if (!coupon.isActive) {
-    return res.status(StatusCodes.BAD_REQUEST).json({
-      status: "error",
-      message: "Coupon is not active",
-    });
-  }
-
-  let cart = await Cart.findOne({ user: userId });
-
-  if (!cart) {
-    cart = new Cart({
-      user: userId,
-      items: [],
-      coupon: coupon._id,
-    });
-  } else {
-    cart.coupon = coupon._id;
-  }
-
-  await cart.save();
+  // Use cartService to handle coupon application with validations
+  const updatedCart = await cartService.updateCart(userId, { coupon: code });
 
   res.status(StatusCodes.OK).json({
-    status: "success",
-    data: cart,
+    status: JSEND_STATUS.SUCCESS,
+    data: updatedCart,
   });
 });
 
@@ -59,11 +31,11 @@ const applyCoupon = asyncWrapper(async (req, res) => {
  * @returns {Object} Created or updated cart
  */
 export const createOrUpdateCart = asyncWrapper(async (req, res) => {
-  // const userId = "665d1b8fd5e1b2c5d9a66f11";
-  const userId = req.user.id;
+  const userId = req.user._id;
+  // const userId = "649c1f1f1f1f1f1f1f1f1f1f";
   const cart = await cartService.createOrUpdateCart(userId, req.body);
-  res.status(StatusCodes.CREATED).json({ status: "success", data: cart });
-});
+  res.status(StatusCodes.CREATED).json({ status: JSEND_STATUS.SUCCESS, data: cart });
+}); 
 
 /**
  * @description Update the user's existing cart
@@ -73,10 +45,10 @@ export const createOrUpdateCart = asyncWrapper(async (req, res) => {
  * @returns {Object} Updated cart
  */
 const updateCart = asyncWrapper(async (req, res) => {
-  // const userId = "665d1b8fd5e1b2c5d9a66f11";
-  const userId = req.user.id;
+  const userId = req.user._id;
+  // const userId = "649c1f1f1f1f1f1f1f1f1f1f";
   const cart = await cartService.updateCart(userId, req.body);
-  res.status(StatusCodes.OK).json({ status: "success", data: cart });
+  res.status(StatusCodes.OK).json({ status: JSEND_STATUS.SUCCESS, data: cart });
 });
 
 /**
@@ -87,10 +59,10 @@ const updateCart = asyncWrapper(async (req, res) => {
  * @returns {Object} User's cart
  */
 export const getCartByUserId = asyncWrapper(async (req, res) => {
-  // const userId = "665d1b8fd5e1b2c5d9a66f11";
-  const userId = req.user.id;
+  const userId = req.user._id;
+  // const userId = "649c1f1f1f1f1f1f1f1f1f1f";
   const cart = await cartService.getCartByUserId(userId);
-  res.status(StatusCodes.OK).json({ status: "success", data: cart });
+  res.status(StatusCodes.OK).json({ status: JSEND_STATUS.SUCCESS, data: cart });
 });
 
 /**
@@ -101,8 +73,8 @@ export const getCartByUserId = asyncWrapper(async (req, res) => {
  * @returns {void} No content
  */
 export const deleteCart = asyncWrapper(async (req, res) => {
-  // const userId = "665d1b8fd5e1b2c5d9a66f11";
-  const userId = req.user.id;
+  const userId = req.user._id;
+  // const userId = "649c1f1f1f1f1f1f1f1f1f1f";
   await cartService.deleteCart(userId);
   res.status(StatusCodes.NO_CONTENT).send();
 });
@@ -115,10 +87,10 @@ export const deleteCart = asyncWrapper(async (req, res) => {
  * @returns {Object} Updated cart with the new item added
  */
 export const addItemToCart = asyncWrapper(async (req, res) => {
-  // const userId = "665d1b8fd5e1b2c5d9a66f11";
-  const userId = req.user.id;
+    const userId = req.user._id;
+  // const userId = "649c1f1f1f1f1f1f1f1f1f1f";
   const cart = await cartService.addItemToCart(userId, req.body);
-  res.status(StatusCodes.OK).json({ status: "success", data: cart });
+  res.status(StatusCodes.OK).json({ status: JSEND_STATUS.SUCCESS, data: cart });
 });
 
 /**
@@ -129,12 +101,11 @@ export const addItemToCart = asyncWrapper(async (req, res) => {
  * @returns {Object} Updated cart with the item removed
  */
 export const removeItemFromCart = asyncWrapper(async (req, res) => {
-  // const userId = "665d1b8fd5e1b2c5d9a66f11";
-  const userId = req.user.id;
+   const userId = req.user._id;
+  // const userId = "649c1f1f1f1f1f1f1f1f1f1f";
   const { productId } = req.params;
-  console.log(productId);
-  const cart = await cartService.removeItemFromCart(userId, productId);
-  res.status(StatusCodes.OK).json({ status: "success", data: cart });
+  const cart = await cartService.removeItemFromCart(userId, { productId, variant: req.body.variant });
+  res.status(StatusCodes.OK).json({ status: JSEND_STATUS.SUCCESS, data: cart });
 });
 
 /**
@@ -145,8 +116,11 @@ export const removeItemFromCart = asyncWrapper(async (req, res) => {
  * @returns {Object} All carts in the system
  */
 export const getAllCarts = asyncWrapper(async (req, res) => {
-  const carts = await cartService.getAllCarts();
-  res.status(StatusCodes.OK).json({ status: "success", data: carts });
+  // Only admin can access this route
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const carts = await cartService.getAllCarts(page, limit );
+  res.status(StatusCodes.OK).json({ status: JSEND_STATUS.SUCCESS, data: carts });
 });
 
 export default {
@@ -157,5 +131,5 @@ export default {
   addItemToCart,
   removeItemFromCart,
   applyCoupon,
-  getAllCarts
+  getAllCarts,
 };
