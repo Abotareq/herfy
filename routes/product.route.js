@@ -10,6 +10,7 @@ import {
   updateVariantSchema 
 } from "../validations/product.validation.js";
 import { parseVariantsMiddleware } from "../middlewares/parseVariants.js";
+import userRole from "../utils/user.role.js";
 
 const router = express.Router();
 
@@ -42,13 +43,13 @@ router.get("/:productId", productController.getProductById);
 
 /**
  * ================================
- * 🔐 PRIVATE ROUTES (Seller, Admin)
+ * PRIVATE ROUTES (Seller, Admin)
  * ================================
  */
 
 // Global authentication & authorization for all routes below
 router.use(requireAuth);
-router.use(checkRole(["seller", "admin"]));
+router.use(checkRole([userRole.VENDOR, userRole.ADMIN]));
 
 /**
  * @route /products
