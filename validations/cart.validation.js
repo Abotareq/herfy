@@ -32,25 +32,32 @@ export const createOrUpdateCartSchema = Joi.object({
   items: Joi.array()
     .items(
       Joi.object({
-        product: Joi.string().custom((value, helpers) => {
-          if (!isValidObjectId(value)) {
-            return helpers.error("any.invalid");
-          }
-          return value;
-        }, "ObjectId Validation").required(),
+        product: Joi.string()
+          .custom((value, helpers) => {
+            if (!isValidObjectId(value)) {
+              return helpers.error("any.invalid", { message: "Invalid product ID." });
+            }
+            return value;
+          }, "ObjectId Validation")
+          .required(),
         quantity: Joi.number().integer().min(1).required(),
+        variant: Joi.object({
+          name: Joi.string().required(),
+          value: Joi.string().required(),
+        }).optional(),
       })
     )
     .optional(),
+
   coupon: Joi.string()
+    .allow(null, "")
     .custom((value, helpers) => {
-      if (!isValidObjectId(value)) {
-        return helpers.error("any.invalid");
+      if (value && !isValidObjectId(value)) {
+        return helpers.error("any.invalid", { message: "Invalid coupon ID." });
       }
       return value;
     }, "ObjectId Validation")
-    .optional()
-    .allow(null, ""),
+    .optional(),
 });
 
 /**
@@ -68,17 +75,29 @@ export const createOrUpdateCartSchema = Joi.object({
  * const { error, value } = updateCartSchema.validate(data);
  */
 export const updateCartSchema = Joi.object({
-  items: Joi.array().items(
-    Joi.object({
-      product: Joi.string().custom((value, helpers) => {
-        if (!isValidObjectId(value)) {
-          return helpers.error("any.invalid");
-        }
-        return value;
-      }, "ObjectId Validation").required(),
-      quantity: Joi.number().integer().min(1).required(),
-    })
-  ),
+  items: Joi.array()
+    .items(
+      Joi.object({
+        product: Joi.string()
+          .custom((value, helpers) => {
+            if (!isValidObjectId(value)) {
+              return helpers.error("any.invalid");
+            }
+            return value;
+          }, "ObjectId Validation")
+          .required(),
+
+        quantity: Joi.number().integer().min(1).required(),
+
+        variant: Joi.object({
+          name: Joi.string().trim().required(),
+          value: Joi.string().trim().required(),
+        }).optional(),
+      })
+    )
+    .min(1)
+    .required(),
+
   coupon: Joi.string()
     .custom((value, helpers) => {
       if (!isValidObjectId(value)) {
@@ -89,7 +108,6 @@ export const updateCartSchema = Joi.object({
     .optional()
     .allow(null, ""),
 });
-
 /**
  * Validation schema for adding a single item to the cart.
  *
@@ -109,6 +127,10 @@ export const addItemSchema = Joi.object({
     }
     return value;
   }, "ObjectId Validation").required(),
+  variant: Joi.object({
+    name: Joi.string().required(),
+    value: Joi.string().required(),
+  }).optional(),
   quantity: Joi.number().integer().min(1).required(),
 });
 
