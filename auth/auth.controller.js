@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { generateToken } from "./auth.utils.js";
 import StatusCodes from "../utils/status.codes.js";
 import ErrorResponse from "../utils/error-model.js";
-export const signUp = async (req, res) => {
+export const signUp = async (req, res, next) => {
   try {
     const { userName, firstName, lastName, email, phone, password } = req.body;
 
@@ -53,7 +53,7 @@ export const signUp = async (req, res) => {
   }
 };
 
-export const signIn = async (req, res) => {
+export const signIn = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
