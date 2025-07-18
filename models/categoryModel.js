@@ -25,6 +25,15 @@ const categorySchema = new mongoose.Schema({
     default: null,
   },
   image: String,
+  // Added productCount field
+  productCount: {
+    type: Number,
+    default: 0,
+  },
+  storesCount: {
+    type: Number,
+    default: 0, // to track how many stores are associated with this category
+  },
 }, {
   timestamps: true,
 });
