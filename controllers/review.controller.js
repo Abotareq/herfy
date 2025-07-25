@@ -2,6 +2,7 @@ import StatusCodes from '../utils/status.codes.js';
 import httpStatus from '../utils/http.status.message.js'
 import Review from '../models/reviewModel.js';
 import userRole from '../utils/user.role.js';
+import mongoose from 'mongoose';
 // add review 
 export const addNewReview = async(req, res, next) => {
     try {
@@ -90,6 +91,86 @@ export const deleteReviewByAdmin = async(req, res, next) => {
         next(new ErrorResponse(error, StatusCodes.UNAUTHORIZED));
     }
 }
+
+
+// Added by Osama Saad
+
+export const getReviewSummary_DBOnly = async (entityId, entityType) => {
+  const stats = await Review.aggregate([
+    {
+      $match: {
+        entityId: new mongoose.Types.ObjectId(entityId),
+        entityType: entityType
+      }
+    },
+    {
+      $group: {
+        _id: '$rating',
+        count: { $sum: 1 }
+      }
+    },
+    {
+      $sort: { _id: -1 }
+    },
+    {
+      $group: {
+        _id: null,
+        ratings: { $push: { rating: '$_id', count: '$count' } },
+        totalReviews: { $sum: '$count' },
+        totalScore: { $sum: { $multiply: ['$_id', '$count'] } }
+      }
+    },
+    {
+      $project: {
+        _id: 0,
+        totalReviews: 1,
+        averageRating: {
+          $cond: [
+            { $eq: ['$totalReviews', 0] },
+            0,
+            { $round: [{ $divide: ['$totalScore', '$totalReviews'] }, 1] }
+          ]
+        },
+        ratings: {
+          $map: {
+            input: '$ratings',
+            as: 'r',
+            in: {
+              rating: '$$r.rating',
+              count: '$$r.count',
+              percentage: {
+                $round: [
+                  { $multiply: [{ $divide: ['$$r.count', '$totalReviews'] }, 100] },
+                  0
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]);
+
+
+
+  //  لو مفيش تقييمات هنرجع داتا فاضية
+
+  return stats[0] || {
+    totalReviews: 0,
+    averageRating: 0,
+    ratings: [
+      { rating: 5, count: 0, percentage: 0 },
+      { rating: 4, count: 0, percentage: 0 },
+      { rating: 3, count: 0, percentage: 0 },
+      { rating: 2, count: 0, percentage: 0 },
+      { rating: 1, count: 0, percentage: 0 }
+    ]
+  };
+};
+
+
+
+
 // export const deletUserByUser = async (req, res, next) => {
 //     if (!req.user.role || req.user.role !== userRole.CUSTOMER){
 //         res.json(StatusCodes.UNAUTHORIZED).json({data: {message: 'UNAUTHORIZED User'}});
