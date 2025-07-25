@@ -3,6 +3,7 @@ import httpStatus from '../utils/http.status.message.js'
 import Review from '../models/reviewModel.js';
 import userRole from '../utils/user.role.js';
 // add review 
+//handle entity id 
 export const addNewReview = async(req, res, next) => {
     try {
         const { entityType, rating, comment} = req.body;
