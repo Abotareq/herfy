@@ -40,13 +40,19 @@ const getProductById = asyncWrapper(async (req, res) => {
 // For test
 // const userId = "64e5a9f831f60c5edc2e0bf2"
 const createProduct = asyncWrapper(async (req, res) => {
+  req.body.basePrice = Number(req.body.basePrice);
 
-    req.body.basePrice = Number(req.body.basePrice);
-    // for test
-    // const createdProduct = await productService.createProduct(req.body  , req.file ,userId);
-    // for dev
-    const createdProduct = await productService.createProduct(req.body  , req.file , req.user._id);
-    res.status(201).json({ status: 'success', data: createdProduct })
+  const userId = req.user._id;
+
+  // Determine if single or multiple files uploaded
+ 
+  console.log(req.files)
+  const createdProduct = await productService.createProduct(req.body, req.files, userId);
+
+  res.status(201).json({
+    status: 'success',
+    data: createdProduct,
+  });
 });
 
 /**
@@ -84,7 +90,7 @@ const updateProduct = asyncWrapper(async (req, res) => {
   //  Add validation before service call
 
   // for dev
-  const product = await productService.updateProduct(req.params.productId, req.body, req.file ,req.user._id);
+  const product = await productService.updateProduct(req.params.productId, req.body, req.files ,req.user._id);
   
   // for test
   // const product = await productService.updateProduct(req.params.productId, req.body, req.file ,userId);

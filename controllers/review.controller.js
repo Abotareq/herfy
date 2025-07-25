@@ -13,8 +13,10 @@ export const addNewReview = async(req, res, next) => {
             comment,
         })
         res.status(StatusCodes.OK).json({status: httpStatus.SUCCESS, data: {addReview}});
+        
+        // add 
     } catch (error) {
-       next(next(new ErrorResponse(error, StatusCodes.UNAUTHORIZED)));
+      next(next(new ErrorResponse(error, StatusCodes.UNAUTHORIZED)));
     }
 }
 // get all reviews

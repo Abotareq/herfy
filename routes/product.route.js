@@ -1,9 +1,7 @@
 
-  import productController from "../controllers/product.controller.js";
-  import uploadfrom from '../middlewares/uploade.middleware.js';
+import productController from "../controllers/product.controller.js";
 import express from "express";
 import validate from "../middlewares/validate.middleware.js";
-import upload from "../middlewares/uploade.middleware.js";
 import { requireAuth, checkRole } from "../auth/auth.middleware.js";
 import { 
   createProductSchema, 
@@ -13,6 +11,7 @@ import {
 } from "../validations/product.validation.js";
 import { parseVariantsMiddleware } from "../middlewares/parseVariants.js";
 import userRole from "../utils/user.role.js";
+import { uploadCloudinary } from "../middlewares/cloudinary.middleware.js";
 
 const router = express.Router();
 
@@ -29,79 +28,11 @@ const router = express.Router();
   | **PATCH**  | `/api/products/:productId/variants/:variantId` | Update variant of a product                             | `json { "price": 65 } `                                                                                                                                                           | **200 OK** with updated variant object    |
   | **DELETE** | `/api/products/:productId/variants/:variantId` | Delete variant from product                             | **URL params:** `productId`, `variantId`                                                                                                                                          | **204 No Content** or **404 Not Found**   |
   | **POST**   | `/api/products/:productId/images`              | Add multiple images to a product                        | **Form-Data:** `images: (multiple files)`<br>**Note:** Uses `upload.array("images")` middleware.                                                                                  | **200 OK** with updated product images    |
-
-
-  */ 
-  /**
-   * @route GET /products
-   * @desc Get all products with support for filters, pagination, and search
-   * @access Public
-   *
-   * @route POST /products
-   * @desc Create a new product (supports image upload)
-   * @access Private (requires authentication)
-   */
-  router.route("/")
-    .get(productController.getAllProducts)
-    .post(
-      uploadfrom.single("image"),
-      validate(createProductSchema),
-      productController.createProduct
-    );
-
-  /**
-   * @route GET /products/search
-   * @desc Search products by keyword
-   * @access Public
-   */
-  router.route("/search").get(productController.searchProducts);
-
-  /**
-   * @route GET /products/:productId
-   * @desc Get product details by product ID
-   * @access Public
-   *
-   * @route PATCH /products/:productId
-   * @desc Update product details by product ID
-   * @access Private (owner or admin)
-   *
-   * @route DELETE /products/:productId
-   * @desc Delete product by product ID
-   * @access Private (owner or admin)
-   */
-  router.route("/:productId")
-    .get(productController.getProductById)
-    .patch(validate(updateProductSchema), productController.updateProduct)
-    .delete(productController.deleteProduct);
-
-  /**
-   * @route POST /products/:productId/variants
-   * @desc Add a variant (e.g., color, size) to a product
-   * @access Private (owner or admin)
-   *
-   * @route PATCH /products/:productId/variants/:variantId
-   * @desc Update a product variant by variant ID
-   * @access Private (owner or admin)
-   *
-   * @route DELETE /products/:productId/variants/:variantId
-   * @desc Delete a product variant by variant ID
-   * @access Private (owner or admin)
-   */
-  router.route("/:productId/variants")
-    .post(validate(createVariantSchema), productController.addVariant);
-
-  router.route("/:productId/variants/:variantId")
-    .patch(validate(updateVariantSchema), productController.updateVariant)
-    .delete(productController.deleteVariant);
-
   /**
    * @route POST /products/:productId/images
    * @desc Upload multiple images for a product
    * @access Private (owner or admin)
    */
-  router.route("/:productId/images")
-    .post(upload.array("images"), productController.addImages);
-
 /**
  * ================================
  *  PUBLIC ROUTES
@@ -138,7 +69,6 @@ router.get("/:productId", productController.getProductById);
 // Global authentication & authorization for all routes below
 router.use(requireAuth);
 router.use(checkRole([userRole.VENDOR, userRole.ADMIN]));
-
 /**
  * @route /products
  * @desc Create product
@@ -146,7 +76,8 @@ router.use(checkRole([userRole.VENDOR, userRole.ADMIN]));
  */
 router.route("/")
   .post(
-    upload.single("image"),
+    uploadCloudinary.array("images"),
+    // upload.single("image"),
     parseVariantsMiddleware,
     validate(createProductSchema),
     productController.createProduct
@@ -159,7 +90,8 @@ router.route("/")
  */
 router.route("/:productId")
   .patch(
-    upload.single("image"),
+    uploadCloudinary.array("images"),
+    // upload.single("image"),
     parseVariantsMiddleware,
     validate(updateProductSchema),
     productController.updateProduct
@@ -196,7 +128,7 @@ router.route("/:productId/variant/:variantId")
  */
 router.route("/:productId/images")
   .post(
-    upload.array("images"),
+    uploadCloudinary.array("images"),
     productController.addImages
   );
 
