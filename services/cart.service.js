@@ -12,17 +12,17 @@ import StatusCodes from "../utils/status.codes.js";
 const validateCoupon = async (couponId, cart, userId, session = null) => {
   const coupon = await CouponService.getCouponById(couponId, session);
 
-  if (!coupon) throw new AppErrors("Coupon not found", StatusCodes.NOT_FOUND);
-  if (!coupon.isActive)
-    throw new AppErrors("Coupon is not active", StatusCodes.BAD_REQUEST);
+  if (!coupon) throw AppErrors.notFound("Coupon not found");
+  if (!coupon.active)
+    throw AppErrors.badRequest("Coupon is not active")
 
   const now = new Date();
   if (coupon.expiryDate && coupon.expiryDate < now)
-    throw new AppErrors("Coupon has expired", StatusCodes.BAD_REQUEST);
+    throw AppErrors.badRequest("Coupon has expired");
 
-  if (coupon.minimumAmount && cart.total < coupon.minimumAmount)
+  if (coupon.minCartTotal && cart.total < coupon.minCartTotal)
     throw new AppErrors(
-      `Minimum cart total of ${coupon.minimumAmount} required.`,
+      `Minimum cart total of ${coupon.minCartTotal} required.`,
       StatusCodes.BAD_REQUEST
     );
 
@@ -445,8 +445,6 @@ export const deleteCart = async (userId) => {
       const product = item.product;
 
       if (product && product.stock !== undefined) {
-        product.stock += item.quantity;
-
         // "" Handle variant stock reversal if applicable
         if (item.variant && product.variants && product.variants.length > 0) {
           for (const variant of product.variants) {

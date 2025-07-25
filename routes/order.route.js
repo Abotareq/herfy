@@ -5,6 +5,7 @@ import validate from "../middlewares/validate.middleware.js";
 import upload from "../middlewares/uploade.middleware.js";
 import { createOrderSchema, updateOrderStatusSchema } from "../validations/order.validation.js";
 import userRole from "../utils/user.role.js";
+import { uploadCloudinary } from "../middlewares/cloudinary.middleware.js";
 
 const router = express.Router();
 
@@ -136,7 +137,8 @@ router.patch(
  */
 router.patch(
   "/:orderId/items/:itemId",
-  upload.single("image"),
+  // upload.single("image"),
+  uploadCloudinary.single("image"),
   orderController.updateOrderItems
 );
 

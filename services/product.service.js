@@ -73,7 +73,8 @@ const getAllProducts = async ({
     .populate("store", "name slug")
     .sort(sortOption)
     .skip((page - 1) * limit)
-    .limit(limit);
+    .limit(limit)
+    .lean();
 
   const [totalProducts, products] = await Promise.all([
     countPromise,
@@ -83,9 +84,9 @@ const getAllProducts = async ({
   const totalPages = Math.ceil(totalProducts / limit);
 
   // Filter out soft-deleted variants before returning
-  products.forEach(product => {
+  products.forEach((product) => {
     if (product.variants) {
-      product.variants = product.variants.filter(v => !v.isDeleted);
+      product.variants = product.variants.filter((v) => !v.isDeleted);
     }
   });
 
@@ -100,15 +101,16 @@ const getAllProducts = async ({
  * @throws {AppError} - Throws if not found.
  */
 const getProductById = async (productId) => {
-  const product = await Product.findById(productId)
-    .where({ isDeleted: false })
-    .populate("category", "name slug");
+  const product = await Product.findOne({
+    _id: productId,
+    isDeleted: false,
+  }).populate("category", "name slug");
 
   if (!product) throw AppErrors.notFound("Product not found");
 
   // Filter out soft-deleted variants before returning
   if (product.variants) {
-    product.variants = product.variants.filter(v => !v.isDeleted);
+    product.variants = product.variants.filter((v) => !v.isDeleted);
   }
 
   return product;
@@ -157,7 +159,8 @@ const searchProducts = async ({
     .sort(sortOption)
     .skip((page - 1) * limit)
     .limit(limit)
-    .populate("category", "name slug");
+    .populate("category", "name slug")
+    .lean();
 
   const [totalProducts, products] = await Promise.all([
     countPromise,
@@ -167,15 +170,14 @@ const searchProducts = async ({
   const totalPages = Math.ceil(totalProducts / limit);
 
   // Filter out soft-deleted variants before returning
-  products.forEach(product => {
+  products.forEach((product) => {
     if (product.variants) {
-      product.variants = product.variants.filter(v => !v.isDeleted);
+      product.variants = product.variants.filter((v) => !v.isDeleted);
     }
   });
 
   return { products, totalProducts, totalPages, currentPage: page, limit };
 };
-
 
 /**
  * Creates a new product.
@@ -185,13 +187,25 @@ const searchProducts = async ({
  * @returns {Promise<object>} - The created product.
  */
 
-const createProduct = async (data, file, userId) => {
+const createProduct = async (data, files, userId) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    if (file) {
-      data.images = [file.filename];
+    if (files && files.length > 0) {
+      // Multiple images
+      const urls = files.map((file) => {
+        return file.path.startsWith("http")
+          ? file.path
+          : cloudinary.url(file.filename);
+      });
+      data.images = urls;
+    } else if (files) {
+      // Single image passed as single file object
+      const url = files.path.startsWith("http")
+        ? files.path
+        : cloudinary.url(files.filename);
+      data.images = [url];
     }
 
     //  Price validation
@@ -240,7 +254,7 @@ const createProduct = async (data, file, userId) => {
     // Update store's products array
     await Store.findByIdAndUpdate(
       data.store,
-      { $inc:{productCount: 1} },
+      { $inc: { productCount: 1 } },
       { session }
     );
 
@@ -335,7 +349,7 @@ const updateProduct = async (productId, updateData, file, userId) => {
       //  Add product to new store
       await Store.findByIdAndUpdate(
         updateData.store,
-        {$inc :{productCount : 1} },
+        { $inc: { productCount: 1 } },
         { session }
       );
 
@@ -363,8 +377,19 @@ const updateProduct = async (productId, updateData, file, userId) => {
     }
 
     // Image update
-    if (file) {
-      product.images = [file.filename];
+    // Image update
+    if (file && file.length > 0) {
+      // Multiple images
+      const urls = file.map((f) => {
+        return f.path.startsWith("http") ? f.path : cloudinary.url(f.filename);
+      });
+      updateData.images = urls;
+    } else if (file) {
+      // Single image
+      const url = file.path.startsWith("http")
+        ? file.path
+        : cloudinary.url(file.filename);
+      updateData.images = [url];
     }
 
     //  isDeleted update
@@ -415,8 +440,6 @@ const SoftDeleteProduct = async (productId, userId) => {
 
     product.isDeleted = true;
     product.updatedBy = userId;
-
-    
 
     await product.save({ session });
 
@@ -501,7 +524,8 @@ const addVariant = async (productId, variantData) => {
       // Early return without saving if no changes
       return {
         product,
-        message: "Variant exists and all provided options already exist. No update performed.",
+        message:
+          "Variant exists and all provided options already exist. No update performed.",
       };
     }
 
@@ -522,8 +546,6 @@ const addVariant = async (productId, variantData) => {
     };
   }
 };
-
-
 
 /**
  * Updates a variant of a product.
@@ -552,19 +574,20 @@ const updateVariant = async (productId, variantId, variantData) => {
 
     // Update or add options
     if (variantData.options && Array.isArray(variantData.options)) {
-      variantData.options.forEach(newOpt => {
+      variantData.options.forEach((newOpt) => {
         // Validate newOpt structure
         if (!newOpt.value) {
           throw AppErrors.badRequest("Option value is required");
         }
 
         const existingOpt = variant.options.find(
-          opt => opt.value.toLowerCase() === newOpt.value.toLowerCase()
+          (opt) => opt.value.toLowerCase() === newOpt.value.toLowerCase()
         );
 
         if (existingOpt) {
           // Update existing option fields if provided
-          if ("priceModifier" in newOpt) existingOpt.priceModifier = newOpt.priceModifier;
+          if ("priceModifier" in newOpt)
+            existingOpt.priceModifier = newOpt.priceModifier;
           if ("stock" in newOpt) existingOpt.stock = newOpt.stock;
           if ("sku" in newOpt) existingOpt.sku = newOpt.sku;
         } else {
@@ -579,7 +602,6 @@ const updateVariant = async (productId, variantId, variantData) => {
     session.endSession();
 
     return variant; // Return updated variant only
-
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
@@ -612,11 +634,9 @@ const deleteVariant = async (productId, variantId) => {
     await product.save({ session });
     await session.commitTransaction();
     return { message: "Variant marked as deleted successfully" };
-
   } catch (error) {
     await session.abortTransaction();
     throw error;
-
   } finally {
     session.endSession();
   }
@@ -634,9 +654,15 @@ const addImages = async (productId, files) => {
   const product = await Product.findById(productId);
   if (!product) throw AppErrors.notFound("Product not found");
 
-  const imagePaths = files.map((file) => file.filename);
+  // Extract Cloudinary URLs from files array
+  const imagePaths = files.map((file) => file.path);
+
+  // Push new image URLs into existing images array
   product.images.push(...imagePaths);
+
+  // Save updated product
   await product.save();
+
   return product;
 };
 
