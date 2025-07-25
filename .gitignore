@@ -1,7 +1,68 @@
-# add node modules
+# Node.js
+# Dependencies
 node_modules/
-# add logs
-logs/
-# .env files
-./.env
-test.js
+.env_dev
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# dependency directories
+jspm_packages/
+
+# TypeScript files
+*.ts
+!*.d.ts # Do not ignore .d.ts files (type declarations)
+*.js.map
+*.ts.map
+
+# Next.js build output
+.next/
+
+# Jest coverage
+/coverage/
+
+# Production build output
+/dist/
+/build/
+
+# Uploads directory (if used for local storage)
+uploads/
+
+# Editor/IDE specific files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temp files
+*.tmp
+*.temp
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# npm package manager cache
+.npm/
+
+# macOS specific files
+.DS_Store
+.localized
+
+# Windows specific files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
