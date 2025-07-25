@@ -4,9 +4,9 @@ import { checkRole,requireAuth } from '../auth/auth.middleware.js';
 import userRole from '../utils/user.role.js';
 import { filterReviewByProducts } from '../controllers/filter.controller.js';
 
-import { getReviewSummary_DBOnly } from '../controllers/review.controller.js';   // osama saad
+// import { getReviewSummary_DBOnly } from '../controllers/review.controller.js';   
 
-// import { getReviewSummaryRoute } from '../controllers/review.controller.js';
+import { getReviewSummaryRoute } from '../controllers/review.controller.js';   // osama saad
 
 
 const reviewRouter = express.Router();
@@ -20,9 +20,7 @@ reviewRouter.delete('/:id', requireAuth,checkRole([userRole.ADMIN]), deleteRevie
 
 // osama saad
 
-reviewRouter.get('/summary/:entityId/:entityType', getReviewSummary_DBOnly);
-
-
+reviewRouter.get('/summary/:entityId/:entityType', getReviewSummaryRoute);
 
 // reviewRouter.delete('/:id', requireAuth, checkRole([userRole.ADMIN]),deletUserByUser)
 //REVIEW FOR CERTAIN PRODUCT OR CERTAIN STORE

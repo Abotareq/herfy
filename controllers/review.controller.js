@@ -168,6 +168,17 @@ export const getReviewSummary_DBOnly = async (entityId, entityType) => {
   };
 };
 
+export const getReviewSummaryRoute = async (req, res, next) => {
+  try {
+    const { entityId, entityType } = req.params;
+    const summary = await getReviewSummary_DBOnly(entityId, entityType);
+    res.status(200).json({ status: 'success', data: summary });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
 
 
 
