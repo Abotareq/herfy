@@ -4,6 +4,7 @@ import Review from '../models/reviewModel.js';
 import userRole from '../utils/user.role.js';
 import mongoose from 'mongoose';
 // add review 
+//handle entity id 
 export const addNewReview = async(req, res, next) => {
     try {
         const { entityType, rating, comment} = req.body;
