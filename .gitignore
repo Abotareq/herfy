@@ -3,5 +3,5 @@ node_modules/
 # add logs
 logs/
 # .env files
-.env
+./.env
 test.js
