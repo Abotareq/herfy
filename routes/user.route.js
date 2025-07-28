@@ -2,9 +2,9 @@ import {deleteUserByAdmin, deleteUserByUser, getAllUsers, getUserById, updateByU
 import express  from 'express';
 import { checkRole,requireAuth } from '../auth/auth.middleware.js';
 import userRole from '../utils/user.role.js';
-import { searchByRoleByAdmin} from '../controllers/search.controller.js';
+import { searchByRoleByAdmin, searchUserByName} from '../controllers/search.controller.js';
 const userRouter = express.Router();
-
+userRouter.get('/searchUser', requireAuth, checkRole([userRole.ADMIN]), searchUserByName)
 userRouter.get('/search',requireAuth, checkRole([userRole.ADMIN]), searchByRoleByAdmin)
 userRouter.get('/', requireAuth,checkRole([userRole.ADMIN]), getAllUsers);
 userRouter.get('/:id',requireAuth,checkRole([userRole.ADMIN]),  getUserById);
