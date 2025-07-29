@@ -7,7 +7,7 @@ import StatusCodes from '../utils/status.codes.js';
 import Category from "../models/categoryModel.js";
 import Coupon from '../models/cuponModel.js';
 import User from '../models/userModel.js';
-import userRole from './../utils/user.role.js';
+import { options } from 'joi';
 
 export const searchCategoryByName = async (req, res, next) => {
   const { name } = req.query;
@@ -62,6 +62,24 @@ export const searchByRoleByAdmin = async (req, res, next) => {
    } catch (error) {
     next(next(new ErrorResponse(error, StatusCodes.UNAUTHORIZED)))
    }
+}
+export const searchUserByName = async(req, res, next) => {
+  const admin = req.user;
+  if(!admin){
+    return next(new ErrorResponse("Unauthorized User", StatusCodes.UNAUTHORIZED))
+  }
+  try {
+    const {userName} = req.query;
+    if(!userName || userName.trim() === ''){
+      return res.status(StatusCodes.BAD_REQUEST).json({status: httpStatus.FAIL,
+              data: {message: "Please enter a search element"}
+            })
+    }
+    const result = await User.find({userName: {$regix: userName, options: 'i'}}).populate(userName)
+    res.status(StatusCodes.OK).json({status: httpStatus.SUCCESS, data:{result}})
+  } catch (error) {
+    next(next(new ErrorResponse(error, StatusCodes.UNAUTHORIZED)))
+  }
 }
 // export const searchRole = async (req, res, next) => {
 //     const Query = req.query;
