@@ -19,7 +19,6 @@ reviewRouter.delete('/:id', requireAuth,checkRole([userRole.ADMIN]), deleteRevie
 
 
 // osama saad
-
 reviewRouter.get('/summary/:entityId/:entityType', getReviewSummaryRoute);
 
 // reviewRouter.delete('/:id', requireAuth, checkRole([userRole.ADMIN]),deletUserByUser)

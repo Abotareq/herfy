@@ -21,21 +21,115 @@ export const addNewReview = async(req, res, next) => {
     }
 }
 // get all reviews
-export const getAllReviews = async(req, res, next) => {
-    const query = req.query;
-    const page = query.page;
-    const limit = query.limit;
-    const end = (page - 1) * limit
-    try {
-        const allReviews =await Review.find().populate('comment').limit(limit).skip(end);
-        if(!allReviews){
-            return next(new ErrorResponse('No review found', StatusCodes.NOT_FOUND));
-        }
-        res.status(StatusCodes.OK).json({status: httpStatus.SUCCESS, data: {allReviews}});
-    } catch (error) {
-      next(new ErrorResponse(error, StatusCodes.UNAUTHORIZED));
+// export const getAllReviews = async(req, res, next) => {
+//     const query = req.query;
+//     const page = query.page;
+//     const limit = query.limit;
+//     const end = (page - 1) * limit
+//     try {
+//         const allReviews =await Review.find().populate('comment').limit(limit).skip(end);
+//         if(!allReviews){
+//             return next(new ErrorResponse('No review found', StatusCodes.NOT_FOUND));
+//         }
+//         res.status(StatusCodes.OK).json({status: httpStatus.SUCCESS, data: {allReviews}});
+//     } catch (error) {
+//       next(new ErrorResponse(error, StatusCodes.UNAUTHORIZED));
+//     }
+// }
+
+export const getAllReviews = async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const skip = (page - 1) * limit;
+
+
+    const pipeline = [
+      { $sort: { createdAt: -1 } },
+
+      { $skip: skip },
+      { $limit: limit },
+
+
+      {
+        $lookup: {
+          from: 'users', 
+          localField: 'user',
+          foreignField: '_id',
+          as: 'user',
+        },
+      },
+
+
+      {
+        $lookup: {
+          from: 'products', 
+          localField: 'entityId',
+          foreignField: '_id',
+          as: 'product',
+        },
+      },
+
+
+      {
+        $lookup: {
+          from: 'stores', 
+          localField: 'entityId',
+          foreignField: '_id',
+          as: 'store',
+        },
+      },
+
+      {
+        $addFields: {
+          entity: { $ifNull: [{ $first: '$product' }, { $first: '$store' }] },
+          user: { $first: '$user' },
+        },
+      },
+
+      {
+        $project: {
+
+          product: 0,
+          store: 0,
+
+          'user.password': 0,
+          'user.passwordResetToken': 0,
+          'user.passwordResetExpires': 0,
+        },
+      },
+    ];
+
+    // Execute pipeline
+    const allReviews = await Review.aggregate(pipeline);
+
+    // Get the total count of documents for pagination metadata
+    const totalReviews = await Review.countDocuments();
+    const totalPages = Math.ceil(totalReviews / limit);
+
+    if (!allReviews || allReviews.length === 0) {
+      return next(new ErrorResponse('No reviews found', StatusCodes.NOT_FOUND));
     }
-}
+
+    res.status(StatusCodes.OK).json({
+      status: 'success',
+      results: allReviews.length,
+      pagination: {
+        totalReviews,
+        totalPages,
+        currentPage: page,
+      },
+      data: { allReviews },
+    });
+  } catch (error) {
+
+    console.error(error);
+    next(new ErrorResponse('Failed to fetch reviews', StatusCodes.INTERNAL_SERVER_ERROR));
+  }
+};
+
+
+
 // update review
 export const updateReviews = async (req, res, next) => {
   try {
