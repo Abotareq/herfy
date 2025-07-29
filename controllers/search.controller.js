@@ -7,7 +7,9 @@ import StatusCodes from '../utils/status.codes.js';
 import Category from "../models/categoryModel.js";
 import Coupon from '../models/cuponModel.js';
 import User from '../models/userModel.js';
-import { options } from 'joi';
+
+import pkg from 'joi'       // osama saad
+const { options } = pkg;    // osama saad
 
 export const searchCategoryByName = async (req, res, next) => {
   const { name } = req.query;
