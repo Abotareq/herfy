@@ -51,7 +51,7 @@ router.route("/")
     uploadCloudinary.single("logoUrl"),
     // upload.single("logoUrl"),
     storeParserMiddleware,
-    checkRole([userRole.VENDOR]),
+    checkRole([userRole.VENDOR, userRole.ADMIN]),
     validate(createStoreSchema),
     storeController.createStore
   );
