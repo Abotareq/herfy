@@ -57,7 +57,7 @@ export const updateUserByAdmin = async (req, res, next) => {
         });
     }
     res
-      .status(StatusCodes.FOUND)
+      .status(StatusCodes.OK)
       .json({ status: httpStatus.SUCCESS, data: { updateUser } });
   } catch (error) {
     next(next(new ErrorResponse(error, StatusCodes.UNAUTHORIZED)));
