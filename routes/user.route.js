@@ -44,6 +44,7 @@ userRouter.delete(
   checkRole([userRole.CUSTOMER]),
   deleteUserByUser
 );
+userRouter.get('/filter', requireAuth, checkRole([userRole.ADMIN]),fiterUserByRole)
 /* userRouter.get("/search", searchByRoleByAdmin);
 userRouter.get("/", getAllUsers);
 userRouter.get("/:id", getUserById);
