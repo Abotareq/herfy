@@ -50,10 +50,10 @@ const fileFilter = (req, file, cb) => {
 /**
  * Multer middleware configured with Cloudinary storage, file filter, and size limit (5MB).
  */
-const upload = multer({
+const uploadCloudinary = multer({
   storage,
   fileFilter,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
 });
 
-export default upload;
+export {uploadCloudinary};
