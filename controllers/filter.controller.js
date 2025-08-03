@@ -97,3 +97,21 @@ export const filterReviewByShops = async (req, res, next) =>{
         next(next(new ErrorResponse(error, StatusCodes.INTERNAL_SERVER_ERROR)));
     }
 }
+export const fiterUserByRole = async(req, res, next) =>{
+  const admin = req.user;
+  if(!admin){
+    return next(new ErrorResponse("Unauthorized User", StatusCodes.UNAUTHORIZED));
+  }
+  const {role} = req.query;
+  let filter = {}
+
+  if(role && role.trim() !== ''){
+    filter.role = role
+  };
+  try {
+    const result = await User.find(filter).populate('role');
+    res.status(StatusCodes.OK).json({status: httpStatus.SUCCESS, data:{result}});
+  } catch (error) {
+    next(new ErrorResponse(error.message, StatusCodes.INTERNAL_SERVER_ERROR));
+  }
+}
