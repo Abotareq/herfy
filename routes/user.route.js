@@ -10,6 +10,8 @@ import express from "express";
 import { checkRole, requireAuth } from "../auth/auth.middleware.js";
 import userRole from "../utils/user.role.js";
 import { searchByRoleByAdmin } from "../controllers/search.controller.js";
+import { fiterUserByRole } from "../controllers/filter.controller.js";
+
 const userRouter = express.Router();
 
 userRouter.get(
@@ -44,7 +46,7 @@ userRouter.delete(
   checkRole([userRole.CUSTOMER]),
   deleteUserByUser
 );
-userRouter.get('/filter', requireAuth, checkRole([userRole.ADMIN]),fiterUserByRole)
+userRouter.get('/filter', requireAuth, checkRole([userRole.ADMIN]), )
 /* userRouter.get("/search", searchByRoleByAdmin);
 userRouter.get("/", getAllUsers);
 userRouter.get("/:id", getUserById);
