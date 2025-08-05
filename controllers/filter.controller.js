@@ -19,7 +19,7 @@ export const filterCategoryByName = async (req, res, next) => {
 
   try {
     const filter = {
-      name : name,
+      name: { $regex: name, $options: 'i' } 
     };
 
     const result = await Category.find(filter);
