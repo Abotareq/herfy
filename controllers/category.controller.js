@@ -58,16 +58,19 @@ export const deleteCategory = async(req, res, next) => {
     }
 }
 export const UpdateCategory = async (req, res, next) => {
-    if(!req.user.role || req.user.role !== 'ADMIN'){
-        res.json(StatusCodes.UNAUTHORIZED).json({data: {message: 'UNAUTHORIZED User'}})
-    }
+    // if(!req.user.role || req.user.role !== 'ADMIN'){
+    //     res.json(StatusCodes.UNAUTHORIZED).json({data: {message: 'UNAUTHORIZED User'}})
+    // }
     try {
         const categoryId = req.params.id;
-        const newCategory = Category.findByIdAndUpdate(categoryId)
-        if(!newCategory){
+        const UpdatedCategory =await Category.findByIdAndUpdate(categoryId,
+            {$set: {...req.body}},
+            {new: true}
+        );
+        if(!UpdatedCategory){
             res.status(StatusCodes.BAD_REQUEST).json({status: httpStatus.ERROR, data:{message: "Can't get this category"}});
         }
-        res.status(StatusCodes.OK).son({status: httpStatus.SUCCESS, data:{newCategory}})
+        res.status(StatusCodes.OK).json({status: httpStatus.SUCCESS, data:{UpdatedCategory}})
     } catch (error) {
        return next(new ErrorResponse(error, StatusCodes.UNAUTHORIZED));
     }
