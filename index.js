@@ -97,8 +97,8 @@ connecToDb();
 // });
 
 //*------------------------------------host server ------------------------------------*//   osama saad
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Server is running on http://0.0.0.0:${PORT}`);
+app.listen(3000, "localhost", () => {
+  console.log("Server is running on http://localhost:3000");
 });
 
 //*------------------------------------graceful shutdown------------------------------------*/
@@ -108,6 +108,5 @@ process.on("SIGINT", async () => {
   process.exit(0);
 });
 
-
 // test refaat
-//test osama and refaat 
+//test osama and refaat
