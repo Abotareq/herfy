@@ -14,7 +14,7 @@ export const getAllCategoty = async(req, res, next) => {
     if(!allCategories){
         res.status(StatusCodes.UNAUTHORIZED).json({status: httpStatus.ERROR, data:{message: "Unothoriaed"}})
     }
-    res.status(StatusCodes.OK).json({status: httpStatus.SUCCESS, data: {allCategories}})
+    res.status(StatusCodes.OK).json({status: httpStatus.SUCCESS, data: {allCategories, currentPage: page, count: limit}})
     } catch (err) {
        next(next(new ErrorResponse(err, StatusCodes.UNAUTHORIZED)))
     }
