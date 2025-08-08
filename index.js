@@ -97,8 +97,9 @@ connecToDb();
 // });
 
 //*------------------------------------host server ------------------------------------*//   osama saad
-app.listen(3000, "localhost", () => {
-  console.log("Server is running on http://localhost:3000");
+
+app.listen(PORT, () => {
+  console.log(`🚀 Server is running on https://herafy-backend.up.railway.app`);
 });
 
 //*------------------------------------graceful shutdown------------------------------------*/

@@ -22,7 +22,7 @@ export const getAllUsers = async (req, res) => {
   }
   res
     .status(StatusCodes.ACCEPTED)
-    .json({ status: httpStatus.SUCCESS, data: { users } });
+    .json({ status: httpStatus.SUCCESS, data: { users, currentPage: page, count: users.length } });
 };
 // get user by id
 export const getUserById = async (req, res, next) => {

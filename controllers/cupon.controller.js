@@ -13,7 +13,7 @@ export const getAllCupons = async(req, res, next) => {
         if(!allCupons){
            return next(new ErrorResponse('coupon not found', StatusCodes.NOT_FOUND))
         }
-        res.status(StatusCodes.OK).json({status: httpStatus.SUCCESS, data:{allCupons}})
+        res.status(StatusCodes.OK).json({status: httpStatus.SUCCESS, data:{allCupons}, currentPage: page, coupons: limit})
     } catch (error) {
        next(new ErrorResponse(error, StatusCodes.UNAUTHORIZED));
     }
@@ -36,7 +36,7 @@ export const addCupon = async(req, res, next) => {
     })
     res.status(StatusCodes.OK).json({status: httpStatus.SUCCESS, date: {newCupon}})
     } catch (error) {
-       next(new ErrorResponse(error, StatusCodes.UNAUTHORIZED));
+       next(new ErrorResponse(error, StatusCodes.BAD_REQUEST));
     }
 }
 // get cupon by id

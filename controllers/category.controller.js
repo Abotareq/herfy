@@ -11,10 +11,12 @@ export const getAllCategoty = async (req, res, next) => {
     const page = query.page;
     const end = (page - 1) * limit;
     const allCategories = await Category.find().limit(limit).skip(end);
+
     if (!allCategories) {
       res
         .status(StatusCodes.UNAUTHORIZED)
         .json({ status: httpStatus.ERROR, data: { message: "Unothoriaed" } });
+
     }
     res
       .status(StatusCodes.OK)
