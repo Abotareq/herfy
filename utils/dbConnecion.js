@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 export const connecToDb = () => {
   mongoose
     // .connect(`${process.env.DB_HOST}${process.env.DB_NAME}`)
-    mongoose.connect(process.env.MONGO_URI, { dbName: 'herafyDB'})
+    mongoose.connect(`${process.env.DB_HOST}${process.env.DB_NAME}`)
     .then(() => {
       console.log("MongoDB connected");
     })
