@@ -8,8 +8,10 @@ import userRole from '../utils/user.role.js';
 //handle entity id 
 export const addNewReview = async(req, res, next) => {
     try {
-        const { entityType, rating, comment} = req.body;
+        const { user, entityId,entityType, rating, comment} = req.body;
         const addReview =await Review.create({
+            user,
+            entityId,
             entityType,
             rating,
             comment,
