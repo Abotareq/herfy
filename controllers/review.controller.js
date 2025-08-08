@@ -7,20 +7,20 @@ import mongoose from 'mongoose';
 //handle entity id 
 export const addNewReview = async(req, res, next) => {
     try {
-        const { entityType, rating, comment} = req.body;
+        const {user, entityId,entityType, rating, comment} = req.body;
         const addReview =await Review.create({
+            user,
+            entityId,
             entityType,
             rating,
             comment,
         })
         res.status(StatusCodes.OK).json({status: httpStatus.SUCCESS, data: {addReview}});
-        
-        // add 
     } catch (error) {
       next(next(new ErrorResponse(error, StatusCodes.UNAUTHORIZED)));
     }
 }
-// get all reviews
+// // get all reviews
 // export const getAllReviews = async(req, res, next) => {
 //     const query = req.query;
 //     const page = query.page;
