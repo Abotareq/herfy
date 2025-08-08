@@ -92,14 +92,14 @@ app.use(errorHandler);
 //*------------------------------------db + server start------------------------------------*//
 connecToDb();
 
-// app.listen(PORT, () => {
-//   console.log(`🚀 Server is running on http://localhost:${PORT}`);
-// });
+app.listen(PORT, () => {
+  console.log(`🚀 Server is running on http://localhost:${PORT}`);
+});
 
 //*------------------------------------host server ------------------------------------*//   osama saad
-app.listen(PORT, () => {
-  console.log(`🚀 Server is running on https://herafy-backend.up.railway.app`);
-});
+// app.listen(PORT, () => {
+//   console.log(`🚀 Server is running on https://herafy-backend.up.railway.app`);
+// });
 
 //*------------------------------------graceful shutdown------------------------------------*/
 process.on("SIGINT", async () => {
