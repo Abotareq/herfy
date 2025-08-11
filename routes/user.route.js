@@ -47,13 +47,14 @@ userRouter.delete(
   deleteUserByUser
 );
 userRouter.get('/filter', requireAuth, checkRole([userRole.ADMIN]), fiterUserByRole)
-/* userRouter.get("/search", searchByRoleByAdmin);
-userRouter.get("/", getAllUsers);
-userRouter.get("/:id", getUserById);
-userRouter.patch("/", updateByUser);
-userRouter.patch("/:id", updateUserByAdmin);
-userRouter.delete("/:id", deleteUserByAdmin);
-userRouter.delete("/", deleteUserByUser); */
+userRouter.get("/search", searchByRoleByAdmin);
+// userRouter.get('/filter', fiterUserByRole)
+// userRouter.get("/", getAllUsers);
+// userRouter.get("/:id", getUserById);
+// userRouter.patch("/", updateByUser);
+// userRouter.patch("/:id", updateUserByAdmin);
+// userRouter.delete("/:id", deleteUserByAdmin);
+// userRouter.delete("/", deleteUserByUser); 
 // userRouter.get('/search',requireAuth, checkRole([userRole.CUSTOMER, userRole.VENDOR]),searchRole)
 export default userRouter;
 //delete user by user

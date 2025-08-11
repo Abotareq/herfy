@@ -25,10 +25,15 @@ const createPayment = asyncWrapper(async (req, res) => {
  * @route GET /payments/:id
  */
 const getPaymentById = asyncWrapper(async (req, res) => {
-  const payment = await paymentService.getPaymentById(req.params.id);
+  const result = await paymentService.getPaymentById(req.params.id);
   res
     .status(StatusCodes.OK)
-    .json({ status: JSEND_STATUS.SUCCESS, data: payment });
+    .json({ 
+      status: JSEND_STATUS.SUCCESS, 
+      data: {
+        payment: result,
+      },
+    });
 });
 
 /**
@@ -51,10 +56,20 @@ const updatePaymentStatus = asyncWrapper(async (req, res) => {
  */
 const getAllPayments = asyncWrapper(async (req, res) => {
 
-  const payments = await paymentService.getAllPayments(req.query);
+  const results = await paymentService.getAllPayments(req.query);
   res
     .status(StatusCodes.OK)
-    .json({ status: JSEND_STATUS.SUCCESS, data: payments });
+    .json({ 
+      status: JSEND_STATUS.SUCCESS, 
+      data:{
+        payments: results.data.payments,
+      } ,
+      meta: {
+        total: results.data.total,
+        page: results.data.page,
+        limit: results.data.limit,
+      }
+    });
 });
 
 /**

@@ -14,7 +14,8 @@ import StatusCodes from "../utils/status.codes.js";
  */
 const getAllProducts = asyncWrapper(async (req, res) => {
   const data = await productService.getAllProducts(req.query);
-  res.status(StatusCodes.OK).json({ status: JSEND_STATUS.SUCCESS, ...data });
+  res.status(StatusCodes.OK).json(
+    { status: JSEND_STATUS.SUCCESS, ...data });
 });
 
 /**
