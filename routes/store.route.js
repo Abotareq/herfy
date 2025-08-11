@@ -1,7 +1,6 @@
 import express from "express";
 import storeController from "../controllers/store.controller.js";
 import validate from "../middlewares/validate.middleware.js";
-import upload from "../middlewares/uploade.middleware.js";
 import { requireAuth, checkRole } from "../auth/auth.middleware.js";
 import { createStoreSchema, updateStoreSchema } from "../validations/store.validation.js";
 import storeParserMiddleware from "../middlewares/store.parse.js";
@@ -51,7 +50,7 @@ router.route("/")
     uploadCloudinary.single("logoUrl"),
     // upload.single("logoUrl"),
     storeParserMiddleware,
-    checkRole([userRole.VENDOR]),
+    checkRole([userRole.VENDOR,userRole.ADMIN]),
     validate(createStoreSchema),
     storeController.createStore
   );
@@ -66,7 +65,7 @@ router.route("/:storeId")
     uploadCloudinary.single("image"),
     // upload.single("image"),
     storeParserMiddleware,
-    checkRole([userRole.VENDOR]),
+    checkRole([userRole.VENDOR,userRole.ADMIN]),
     validate(updateStoreSchema),
     storeController.updateStore
   )
