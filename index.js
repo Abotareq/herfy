@@ -97,6 +97,7 @@ connecToDb();
 // });
 
 //*------------------------------------host server ------------------------------------*//   osama saad
+
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on https://herafy-backend.up.railway.app`);
 });
@@ -108,6 +109,5 @@ process.on("SIGINT", async () => {
   process.exit(0);
 });
 
-
 // test refaat
-//test osama and refaat 
+//test osama and refaat
