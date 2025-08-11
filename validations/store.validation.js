@@ -90,6 +90,11 @@ export const createStoreSchema = Joi.object({
         Joi.number().min(-90).max(90)
         ).length(2).required(),
     }).optional(),
+    address: Joi.object({
+        city: Joi.string().required().trim(),
+        postalCode: Joi.number().required(),
+        street: Joi.string().required().trim(),
+    }).required(),
     policies: Joi.object({
         shipping: Joi.string().optional(),
         returns: Joi.string().optional(),
@@ -147,6 +152,11 @@ export const updateStoreSchema = Joi.object({
         Joi.number().min(-180).max(180),
         Joi.number().min(-90).max(90)
         ).length(2).required(),
+    }).optional(),
+    address: Joi.object({
+        city: Joi.string().required().trim(),
+        postalCode: Joi.number().required(),
+        street: Joi.string().required().trim(),
     }).optional(),
     policies: Joi.object({
         shipping: Joi.string().optional(),
