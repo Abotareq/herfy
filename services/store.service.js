@@ -74,6 +74,11 @@ const createStore = async (data) => {
             shipping: data.policies?.shipping,
             returns: data.policies?.returns,
           },
+          address: {
+            city: data.address.city,
+            postalCode: data.address.postalCode,
+            street: data.address.street,
+          },
           slug: data.slug, // Ensure slug is set
           isDeleted: false, // Default to not deleted
           // Add any other default fields you need
@@ -216,6 +221,14 @@ const updateStore = async (id, data) => {
       };
     }
 
+    // Update address if provided
+    if (data.address) {
+      store.address = {
+        city: data.address.city,
+        postalCode: data.address.postalCode,
+        street: data.address.street,
+      };
+    }
     // Save updated store within transaction (triggers validation + hooks)
     await store.save({ session });
 

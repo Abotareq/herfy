@@ -19,7 +19,7 @@ const applyCoupon = asyncWrapper(async (req, res) => {
 
   res.status(StatusCodes.OK).json({
     status: JSEND_STATUS.SUCCESS,
-    data: updatedCart,
+    data: { updatedCart },
   });
 });
 
@@ -32,10 +32,11 @@ const applyCoupon = asyncWrapper(async (req, res) => {
  */
 export const createOrUpdateCart = asyncWrapper(async (req, res) => {
   const userId = req.user._id;
-  // const userId = "649c1f1f1f1f1f1f1f1f1f1f";
   const cart = await cartService.createOrUpdateCart(userId, req.body);
-  res.status(StatusCodes.CREATED).json({ status: JSEND_STATUS.SUCCESS, data: cart });
-}); 
+  res
+    .status(StatusCodes.CREATED)
+    .json({ status: JSEND_STATUS.SUCCESS, data: { cart } });
+});
 
 /**
  * @description Update the user's existing cart
@@ -48,7 +49,9 @@ const updateCart = asyncWrapper(async (req, res) => {
   const userId = req.user._id;
   // const userId = "649c1f1f1f1f1f1f1f1f1f1f";
   const cart = await cartService.updateCart(userId, req.body);
-  res.status(StatusCodes.OK).json({ status: JSEND_STATUS.SUCCESS, data: cart });
+  res
+    .status(StatusCodes.OK)
+    .json({ status: JSEND_STATUS.SUCCESS, data: { cart } });
 });
 
 /**
@@ -62,7 +65,9 @@ export const getCartByUserId = asyncWrapper(async (req, res) => {
   const userId = req.user._id;
   // const userId = "649c1f1f1f1f1f1f1f1f1f1f";
   const cart = await cartService.getCartByUserId(userId);
-  res.status(StatusCodes.OK).json({ status: JSEND_STATUS.SUCCESS, data: cart });
+  res
+    .status(StatusCodes.OK)
+    .json({ status: JSEND_STATUS.SUCCESS, data: { cart } });
 });
 
 /**
@@ -87,7 +92,7 @@ export const deleteCart = asyncWrapper(async (req, res) => {
  * @returns {Object} Updated cart with the new item added
  */
 export const addItemToCart = asyncWrapper(async (req, res) => {
-    const userId = req.user._id;
+  const userId = req.user._id;
   // const userId = "649c1f1f1f1f1f1f1f1f1f1f";
   const cart = await cartService.addItemToCart(userId, req.body);
   res.status(StatusCodes.OK).json({ status: JSEND_STATUS.SUCCESS, data: cart });
@@ -101,10 +106,13 @@ export const addItemToCart = asyncWrapper(async (req, res) => {
  * @returns {Object} Updated cart with the item removed
  */
 export const removeItemFromCart = asyncWrapper(async (req, res) => {
-   const userId = req.user._id;
+  const userId = req.user._id;
   // const userId = "649c1f1f1f1f1f1f1f1f1f1f";
   const { productId } = req.params;
-  const cart = await cartService.removeItemFromCart(userId, { productId, variant: req.body.variant });
+  const cart = await cartService.removeItemFromCart(userId, {
+    productId,
+    variant: req.body.variant,
+  });
   res.status(StatusCodes.OK).json({ status: JSEND_STATUS.SUCCESS, data: cart });
 });
 
@@ -119,10 +127,62 @@ export const getAllCarts = asyncWrapper(async (req, res) => {
   // Only admin can access this route
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
-  const carts = await cartService.getAllCarts(page, limit );
-  res.status(StatusCodes.OK).json({ status: JSEND_STATUS.SUCCESS, data: carts });
+  const { sortBy, ...filters } = req.query;
+  const data = await cartService.getAllCarts(page, limit, sortBy, filters);
+  console.log(data.carts);
+  res.status(StatusCodes.OK).json({
+    status: JSEND_STATUS.SUCCESS,
+    data: { carts: data.carts },
+    pagination: {
+      total: data.total,
+      totalPages: data.totalPages,
+      currentPage: data.currentPage,
+    },
+  });
 });
 
+/**
+ * @description Get a specific cart by ID (admin only)
+ * @route GET /cart/all-carts/:cartId
+ * @param {Object} req - Express request object (expects req.params.cartId)
+ * @param {Object} res - Express response object
+ * @returns {Object} Cart details
+ */
+export const adminGetCartById = asyncWrapper(async (req, res) => {
+  const { cartId } = req.params;
+  const cart = await cartService.adminGetCartById(cartId);
+  res
+    .status(StatusCodes.OK)
+    .json({ status: JSEND_STATUS.SUCCESS, data: { cart } });
+});
+/**
+ * @description Delete a specific cart by ID (admin only)
+ * @route DELETE /cart/all-carts/:cartId
+ * @param {Object} req - Express request object (expects req.params.cartId)
+ * @param {Object} res - Express response object
+ * @returns {void} No content
+ */
+export const adminDeleteCartById = asyncWrapper(async (req, res) => {
+  const { cartId } = req.params;
+  await cartService.adminDeleteCartById(cartId);
+  res.status(StatusCodes.NO_CONTENT).send();
+});
+
+/**
+ * @description Update a specific cart by ID (admin only)
+ * @route PATCH /cart/all-carts/:cartId
+ * @param {Object} req - Express request object (expects req.params.cartId and req.body with updated cart data)
+ * @param {Object} res - Express response object
+ * @returns {Object} Updated cart
+ */
+export const adminUpdateCart = asyncWrapper(async (req, res) => {
+  const { cartId } = req.params;
+  const updatedCart = await cartService.adminUpdateCart(cartId, req.body);
+  res.status(StatusCodes.OK).json({
+    status: JSEND_STATUS.SUCCESS,
+    data: { updatedCart },
+  });
+});
 export default {
   createOrUpdateCart,
   updateCart,
@@ -132,4 +192,7 @@ export default {
   removeItemFromCart,
   applyCoupon,
   getAllCarts,
+  adminGetCartById,
+  adminDeleteCartById,
+  adminUpdateCart,
 };
