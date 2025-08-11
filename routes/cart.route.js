@@ -26,17 +26,17 @@ router.use(requireAuth);
 router
   .route("/")
   .post(
-    checkRole([userRole.CUSTOMER]),
+    checkRole([userRole.CUSTOMER , userRole.ADMIN]),
     validate(createOrUpdateCartSchema),
     cartController.createOrUpdateCart
   )
   .patch(
-    checkRole([userRole.CUSTOMER]),
+    checkRole([userRole.CUSTOMER , userRole.ADMIN]),
     validate(updateCartSchema),
     cartController.updateCart
   )
   .get(
-    checkRole([userRole.CUSTOMER, userRole.ADMIN]),
+    checkRole([userRole.CUSTOMER]),
     cartController.getCartByUserId
   )
   .delete(
@@ -85,7 +85,24 @@ router
  * ====================
  */
 
-// /cart/all-carts
+// /cart/all-carts/:cartId
+// Get, Update, Delete a specific cart by ID
+// Get all carts
+// /cart/all
+router
+  .route("/all-carts/:cartId")
+  .get(
+    checkRole([userRole.ADMIN]),
+    cartController.adminGetCartById
+  )
+  .delete(
+    checkRole([userRole.ADMIN]),
+    cartController.adminDeleteCartById
+  )
+  .patch(
+    checkRole([userRole.ADMIN]),
+    cartController.adminUpdateCart
+  );
 router
   .route("/all-carts")
   .get(
