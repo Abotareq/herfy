@@ -1,21 +1,3 @@
-// {
-//   "user": "665d1b8fd5e1b2c5d9a66f11",
-//   "items": [
-//     {
-//       "product": "665d1b8fd5e1b2c5d9a66f21",
-//       "quantity": 2,
-//       "variant": {
-//         "Color": "Red",
-//         "Size": "Large"
-//       }
-//     },
-//     {
-//       "product": "665d1b8fd5e1b2c5d9a66f22",
-//       "quantity": 1
-//     }
-//   ],
-//   "coupon": "665d1b8fd5e1b2c5d9a66f99"
-// }
 
 import mongoose from 'mongoose';
 
