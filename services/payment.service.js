@@ -268,7 +268,8 @@ const getAllPayments = async (query) => {
   const skip = (page - 1) * limit;
 
   const paymentsPromise = Payment.find(filter)
-    // .populate("user", "name email")
+    .populate("user" , "userName email")
+    .populate("order")
     .sort(sort)
     .skip(skip)
     .limit(Number(limit))

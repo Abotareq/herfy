@@ -99,11 +99,12 @@ router.patch(
 
 /**
  * @route GET /payments/:id
- * @desc Get payment by ID (Admin, Seller, User)
- * @access Private (Admin, Seller, User)
+ * @desc Get payment by ID (Admin)
+ * @access Private (Admin)
  */
 router.get(
   "/:id",
+  checkRole([userRole.ADMIN]),
   paymentController.getPaymentById
 );
 

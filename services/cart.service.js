@@ -640,40 +640,133 @@ const removeItemFromCart = async (userId, itemData) => {
 /**
  * Get all carts in the system.
  */
-const getAllCarts = async (page = 1, limit = 20) => {
-    page = parseInt(page);
-    limit = parseInt(limit);
+/**
+ * Applies filters to the cart query based on the provided query parameters.
+ *
+ * @param {Object} queryParams - The request query parameters (e.g. from req.query).
+ * @returns {Object} MongoDB query filters.
+ */
+const applyFilters = (queryParams) => {
+  const filters = {};
 
-    const skip = (page - 1) * limit;
+  if (queryParams.selectedStatus === 'Active') {
+    filters.isDeleted = false;
+  } else if (queryParams.selectedStatus === 'Deleted') {
+    filters.isDeleted = true;
+  }
+  // if 'all' or undefined => no filter applied for isDeleted
 
-    const [carts, total] = await Promise.all([
-      Cart.find()
-        .skip(skip)
-        .limit(limit)
-        .populate({
-          path: "user",
-          select: "name email role",
-        })
-        .populate({
-          path: "items.product",
-          select: "name basePrice discountPrice category brand",
-          populate: [
-            { path: "category", select: "name" },
-            { path: "brand", select: "name" },
-          ],
-        })
-        .lean(),
-      Cart.countDocuments(),
-    ]);
+  return filters;
+};
 
-    const totalPages = Math.ceil(total / limit);
+/**
+ * Builds the MongoDB sort object based on the given sortBy parameter.
+ *
+ * @param {string} [sortBy] - Field name to sort by.
+ * @returns {Object} MongoDB sort object.
+ */
+const applySort = (sortBy) => {
+  if (!sortBy) return { createdAt: -1 }; // Default to sorting by latest
+  return { [sortBy]: -1 }; // Descending order by sortBy field
+};
 
-    return {
-      carts,
-      total,
-      totalPages,
-      currentPage: page,
-    }
+/**
+ * Retrieves paginated cart documents with optional filtering and sorting.
+ *
+ * @param {number} [page=1] - Current page number.
+ * @param {number} [limit=20] - Number of results per page.
+ * @param {string} [sortBy] - Field to sort results by.
+ * @param {Object} [queryParams={}] - Query filters (e.g. user, coupon, isDeleted).
+ *
+ * @returns {Promise<Object>} Paginated result with carts and metadata.
+ */
+const getAllCarts = async (page = 1, limit = 20, sortBy, queryParams = {}) => {
+  page = parseInt(page);
+  limit = parseInt(limit);
+  const skip = (page - 1) * limit;
+
+  const filters = applyFilters(queryParams);
+  const sortOptions = applySort(sortBy);
+
+  const [carts, total] = await Promise.all([
+    Cart.find(filters)
+      .sort(sortOptions)
+      .skip(skip)
+      .limit(limit)
+      .populate({
+        path: 'user',
+        select: 'userName email role',
+      })
+      .populate({
+        path: 'items.product',
+        select: 'name basePrice discountPrice category',
+        populate: {
+          path: 'category',
+          select: 'name',
+        },
+      })
+      .lean(),
+
+    Cart.countDocuments(filters),
+  ]);
+
+  const totalPages = Math.ceil(total / limit);
+
+  return {
+    carts,
+    total,
+    totalPages,
+    currentPage: page,
+  };
+};
+/**
+ * Admin: Get a specific cart by ID.
+ */
+const adminGetCartById = async (cartId) => {
+  const cart = await Cart.findById(cartId)
+    .populate({
+      path: "user",
+      select: "userName email role _id",
+    })
+    .populate({
+      path: "items.product",
+      select: "name basePrice discountPrice category ",
+      populate: [
+        { path: "category", select: "name" },
+      ],
+    })
+    .lean();
+    console.log(cart);
+
+  if (!cart) throw AppErrors.notFound("Cart not found");
+
+  return cart;
+}
+/**
+ * Admin: Delete a cart by ID.
+ */
+const adminDeleteCartById = async (cartId) => {
+  const cart = await Cart.findById(cartId);
+  if (!cart) throw AppErrors.notFound("Cart not found");
+  const userId = cart.user
+  deleteCart(userId).then(() => {
+    return { success: true, message: "Cart deleted successfully" };
+  }).catch(error => {
+    throw error;
+  });
+}
+
+const adminUpdateCart = async (cartId, updateData) => {
+  const cart = await Cart.findById(cartId);
+  if (!cart) throw AppErrors.notFound("Cart not found");
+  const userId = cart.user;
+  updateCart(userId, updateData)
+    .then(updatedCart => {
+      return updatedCart;
+    })
+    .catch(error => {
+      throw error;
+    });
 }
 export default {
   createOrUpdateCart,
@@ -683,4 +776,8 @@ export default {
   addItemToCart,
   removeItemFromCart,
   getAllCarts,
+  validateCoupon,
+  adminGetCartById,
+  adminDeleteCartById,
+  adminUpdateCart
 };

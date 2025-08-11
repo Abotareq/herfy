@@ -61,11 +61,6 @@ const orderSchema = new mongoose.Schema({
     postalCode: { type: String, required: true },
     country: { type: String, required: true },
   },
-
-  payment: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: 'Payment',
-},
   coupon: { type: mongoose.Schema.Types.ObjectId, ref: 'Coupon' },
   subtotal: { type: Number, required: true },
   shippingFee: { type: Number, required: true, default: 0 },

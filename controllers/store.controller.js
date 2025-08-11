@@ -58,7 +58,7 @@ const getAllStores = asyncWrapper(async (req, res) => {
 
   res.status(StatusCodes.OK).json({
     status: JSEND_STATUS.SUCCESS,
-    data: result.stores,
+    data: {stores : result.stores},
     pagination: {
       total: result.total,
       currentPage: page,
@@ -83,7 +83,9 @@ const getStoreById = asyncWrapper(async (req, res) => {
 
   res.status(StatusCodes.OK).json({
     status: JSEND_STATUS.SUCCESS,
-    data: store,
+    data: {
+      store,
+    },
   });
 });
 
@@ -114,7 +116,7 @@ const updateStore = asyncWrapper(async (req, res) => {
 
   res.status(StatusCodes.OK).json({
     status: JSEND_STATUS.SUCCESS,
-    data: updatedStore,
+    data: {updatedStore},
   });
 });
 
@@ -134,7 +136,7 @@ const deleteStore = asyncWrapper(async (req, res) => {
   res.status(StatusCodes.OK).json({
     status: JSEND_STATUS.SUCCESS,
     message: "Store deleted successfully",
-    data: deletedStore, // Return the deleted store document if needed
+    data: {deletedStore}, // Return the deleted store document if needed
   });
 
 });

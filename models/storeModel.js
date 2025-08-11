@@ -40,7 +40,20 @@ const storeSchema = new mongoose.Schema({
       index: '2dsphere',
     },
   },
-
+  address: {
+      city: {
+        type: String,
+        required: [true, 'City is required'],
+      },
+      postalCode: {
+        type: Number,
+        required: [true, 'Postal code is required'],
+      },
+      street: {
+        type: String,
+        required: [true, 'Street is required'],
+      },
+  },
   //store related modles 
   categorieCount: { type: Number, default: 0 },
   couponsUsed: { type: Number, default: 0 },

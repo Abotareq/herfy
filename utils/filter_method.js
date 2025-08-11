@@ -52,18 +52,22 @@ export const buildProductFilterQuery = ({ category, search, color, size, minPric
  * @returns {object} Filter object for Mongoose.
  */
 export const buildPaymentFilter = (query) => {
+  console.log(query)
   const filter = {};
 
   if (query.status) {
     filter.status = query.status; // e.g. 'completed', 'failed'
   }
 
+  if (query.provider) {
+    filter.provider = query.provider; // user ID for user-specific payments
+  }
   if (query.user) {
     filter.user = query.user; // user ID for user-specific payments
   }
 
-  if (query.method) {
-    filter.method = query.method; // e.g. 'card', 'cash', 'paypal'
+  if (query.paymentMethod) {
+    filter.paymentMethod = query.paymentMethod; // e.g. 'card', 'cash', 'paypal'
   }
 
   if (query.minAmount) {
