@@ -26,9 +26,9 @@ import storeRoute from "./routes/store.route.js";
 import categoryRouter from "./routes/category.route.js";
 import userRouter from "./routes/user.route.js";
 import orderRoute from "./routes/order.route.js";
-import paymentRoute from "./routes/payment.route.js"
+import paymentRoute from "./routes/payment.route.js";
 
-import cartRoute from "./routes/cart.route.js"
+import cartRoute from "./routes/cart.route.js";
 import couponRouter from "./routes/cupon.route.js";
 import reviewRouter from "./routes/review.route.js";
 
@@ -38,7 +38,13 @@ const PORT = process.env.PORT || 3000;
 
 //*------------------------------------middlewares------------------------------------*//
 app.use(helmet());
-app.use(cors());
+app.use(
+  cors({
+    origin: "http://localhost:4200",
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 app.use(cookieParser());
 app.use(morgan("dev"));
@@ -60,31 +66,39 @@ app.use("/api/auth", authRoutes);
 // import routes from "./routes/index.js";
 // app.use("/api", routes);
 
-// product Route 
+// product Route
 
-app.use("/api/store",storeRoute);
+app.use("/api/store", storeRoute);
 // user Route
-app.use('/api/users', userRouter)
-app.use('/api/category', categoryRouter)
-app.use("/api/order",orderRoute);
-app.use("/api/payment",paymentRoute);
-app.use("/api/cart",cartRoute);
+app.use("/api/users", userRouter);
+app.use("/api/category", categoryRouter);
+app.use("/api/order", orderRoute);
+app.use("/api/payment", paymentRoute);
+app.use("/api/cart", cartRoute);
 app.use("/api/coupon", couponRouter);
-app.use('/api/review', reviewRouter)
-app.use('/api/uploads', express.static(path.join(__dirname, 'uploads/Category')))
+app.use("/api/review", reviewRouter);
+app.use(
+  "/api/uploads",
+  express.static(path.join(__dirname, "uploads/Category"))
+);
 // means that uploads/Category is a static folder
-app.use("/api/product",productRoute)
+app.use("/api/product", productRoute);
 
 // user Route
-
 
 //*------------------------------------error handler (last)------------------------------------*//
 app.use(errorHandler);
 
 //*------------------------------------db + server start------------------------------------*//
 connecToDb();
+
+// app.listen(PORT, () => {
+//   console.log(`🚀 Server is running on http://localhost:${PORT}`);
+// });
+
+//*------------------------------------host server ------------------------------------*//   osama saad
 app.listen(PORT, () => {
-  console.log(`🚀 Server is running on http://localhost:${PORT}`);
+  console.log(`🚀 Server is running on https://herafy-backend.up.railway.app`);
 });
 
 //*------------------------------------graceful shutdown------------------------------------*/
@@ -93,3 +107,7 @@ process.on("SIGINT", async () => {
   console.log("🔌 Server shutdown gracefully");
   process.exit(0);
 });
+
+
+// test refaat
+//test osama and refaat 

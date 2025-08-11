@@ -3,6 +3,8 @@ import bcrypt from "bcryptjs";
 import { generateToken } from "./auth.utils.js";
 import StatusCodes from "../utils/status.codes.js";
 import ErrorResponse from "../utils/error-model.js";
+import jwt from "jsonwebtoken";
+
 export const signUp = async (req, res, next) => {
   try {
     const { userName, firstName, lastName, email, phone, password } = req.body;
@@ -29,7 +31,6 @@ export const signUp = async (req, res, next) => {
       );
     }
 
-    
     const user = await User.create(req.body);
 
     const token = generateToken(user);
@@ -86,9 +87,26 @@ export const signIn = async (req, res, next) => {
     return next(new ErrorResponse(err.message, StatusCodes.INTERNAL_SERVER));
   }
 };
+export const verifyToken = (req, res, next) => {
+  try {
+    const token = req.cookies?.access_token;
+
+    if (!token) {
+      return next(new ErrorResponse('Authentication token missing', StatusCodes.UNAUTHORIZED));
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    req.user = decoded; // Attach decoded user info
+    next();
+  } catch (err) {
+    return next(new ErrorResponse('Invalid or expired token', StatusCodes.UNAUTHORIZED));
+  }
+};
 
 export const signOut = async (req, res, next) => {
   try {
+    req.user = null;
     res.clearCookie("access_token").status(StatusCodes.OK).json({
       message: "Logged out successfully",
     });

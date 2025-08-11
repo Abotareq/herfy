@@ -19,7 +19,7 @@ export const filterCategoryByName = async (req, res, next) => {
 
   try {
     const filter = {
-      name : name,
+      name: { $regex: name, $options: 'i' } 
     };
 
     const result = await Category.find(filter);
@@ -96,4 +96,22 @@ export const filterReviewByShops = async (req, res, next) =>{
     } catch (error) {
         next(next(new ErrorResponse(error, StatusCodes.INTERNAL_SERVER_ERROR)));
     }
+}
+export const fiterUserByRole = async(req, res, next) =>{
+  const admin = req.user;
+  if(!admin){
+    return next(new ErrorResponse("Unauthorized User", StatusCodes.UNAUTHORIZED));
+  }
+  const {role} = req.query;
+  let filter = {}
+
+  if(role && role.trim() !== ''){
+    filter.role = role
+  };
+  try {
+    const result = await User.find(filter).populate('role');
+    res.status(StatusCodes.OK).json({status: httpStatus.SUCCESS, data:{result}});
+  } catch (error) {
+    next(new ErrorResponse(error.message, StatusCodes.INTERNAL_SERVER_ERROR));
+  }
 }
