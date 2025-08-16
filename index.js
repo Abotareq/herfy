@@ -38,13 +38,19 @@ const PORT = process.env.PORT || 3000;
 
 //*------------------------------------middlewares------------------------------------*//
 app.use(helmet());
+const allowedOrigins = ["http://localhost:4200", "http://localhost:3001", "http://localhost:3000"];
 app.use(
   cors({
-    origin: "http://localhost:4200",
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );
-
 app.use(express.json());
 app.use(cookieParser());
 app.use(morgan("dev"));
