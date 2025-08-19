@@ -27,18 +27,33 @@ export const getAllUsers = async (req, res) => {
 // get user by id
 export const getUserById = async (req, res, next) => {
   try {
+    const currentUser = req.user;
     const userId = req.params.id;
+
+    // If vendor or customer, only allow access to their own account
+    if (currentUser.role === userRole.VENDOR || currentUser.role === userRole.CUSTOMER) {
+      if (currentUser._id.toString() !== userId) {
+        return res
+          .status(StatusCodes.UNAUTHORIZED)
+          .json({ data: { message: "Unauthorized access" } });
+      }
+    }
+
+    // Admin can access anyone, so no restriction here
     const user = await User.findById(userId).populate("wishlist");
     if (!user) {
-      res
+      return res
         .status(StatusCodes.NOT_FOUND)
-        .json({ data: { message: "user isn't found" } });
+        .json({ data: { message: "User not found" } });
     }
-    res.select(StatusCodes.ACCEPTED).json({ data: { user } });
+
+    return res.status(StatusCodes.OK).json({ data: { user } });
   } catch (error) {
-    next(next(new ErrorResponse(error, StatusCodes.UNAUTHORIZED)));
+    next(new ErrorResponse(error.message, StatusCodes.INTERNAL_SERVER_ERROR));
   }
 };
+
+
 // update user by ADMIn
 export const updateUserByAdmin = async (req, res, next) => {
   try {
