@@ -35,29 +35,36 @@ export const createOrUpdateCartSchema = Joi.object({
         product: Joi.string()
           .custom((value, helpers) => {
             if (!isValidObjectId(value)) {
-              return helpers.error("any.invalid", { message: "Invalid product ID." });
+              return helpers.error("any.invalid");
             }
             return value;
           }, "ObjectId Validation")
           .required(),
+
         quantity: Joi.number().integer().min(1).required(),
-        variant: Joi.object({
-          name: Joi.string().required(),
-          value: Joi.string().required(),
-        }).optional(),
+        price: Joi.number().precision(2).min(0).required(),
+        variant: Joi.array()
+          .items(
+            Joi.object({
+              name: Joi.string().required(),
+              value: Joi.string().required(),
+            })
+          )
+          .optional(),
       })
     )
-    .optional(),
+    .min(1)
+    .required(),
 
   coupon: Joi.string()
-    .allow(null, "")
     .custom((value, helpers) => {
-      if (value && !isValidObjectId(value)) {
-        return helpers.error("any.invalid", { message: "Invalid coupon ID." });
+      if (!isValidObjectId(value)) {
+        return helpers.error("any.invalid");
       }
       return value;
     }, "ObjectId Validation")
-    .optional(),
+    .optional()
+    .allow(null, ""),
 });
 
 /**
@@ -88,11 +95,31 @@ export const updateCartSchema = Joi.object({
           .required(),
 
         quantity: Joi.number().integer().min(1).required(),
-
-        variant: Joi.object({
-          name: Joi.string().trim().required(),
-          value: Joi.string().trim().required(),
-        }).optional(),
+        price: Joi.number().precision(2).min(0).required(),
+        variant: Joi.array()
+          .items(
+            Joi.object({
+              name: Joi.string().required(),
+              value: Joi.string().required(),
+              _id: Joi.string()
+                .custom((value, helpers) => {
+                  if (!isValidObjectId(value)) {
+                    return helpers.error("any.invalid");
+                  }
+                  return value;
+                }, "ObjectId Validation")
+                .optional()
+            })
+          )
+          .optional(),
+        _id: Joi.string()
+          .custom((value, helpers) => {
+            if (!isValidObjectId(value)) {
+              return helpers.error("any.invalid");
+            }
+            return value;
+          }, "ObjectId Validation")
+          .optional(),
       })
     )
     .min(1)
@@ -121,25 +148,29 @@ export const updateCartSchema = Joi.object({
  * const { error, value } = addItemSchema.validate(data);
  */
 export const addItemSchema = Joi.object({
-  productId: Joi.string().custom((value, helpers) => {
-    if (!isValidObjectId(value)) {
-      return helpers.error("any.invalid");
-    }
-    return value;
-  }, "ObjectId Validation").required(),
-  variant: Joi.object({
-    name: Joi.string().required(),
-    value: Joi.string().required(),
-  }).optional(),
+  product: Joi.string()
+    .custom((value, helpers) => {
+      if (!isValidObjectId(value)) {
+        return helpers.error("any.invalid");
+      }
+      return value;
+    }, "ObjectId Validation")
+    .required(),
+  variant: Joi.array()
+    .items(
+      Joi.object({
+        name: Joi.string().required(),
+        value: Joi.string().required(),
+      })
+    )
+    .optional(),
   quantity: Joi.number().integer().min(1).required(),
 });
 
 export const applyCouponSchema = Joi.object({
-  code: Joi.string()
-    .trim()
-    .required()
-    .messages({
-      "any.required": "Coupon code is required",
-      "string.empty": "Coupon code cannot be empty",
-    }),
+  code: Joi.string().trim().required().messages({
+    "any.required": "Coupon code is required",
+    "string.empty": "Coupon code cannot be empty",
+  }),
+  items: Joi.array().required(),
 });
