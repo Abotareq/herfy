@@ -13,8 +13,7 @@ const validateCoupon = async (couponId, cart, userId, session = null) => {
   const coupon = await CouponService.getCouponById(couponId, session);
 
   if (!coupon) throw AppErrors.notFound("Coupon not found");
-  if (!coupon.active)
-    throw AppErrors.badRequest("Coupon is not active")
+  if (!coupon.active) throw AppErrors.badRequest("Coupon is not active");
 
   const now = new Date();
   if (coupon.expiryDate && coupon.expiryDate < now)
@@ -63,86 +62,6 @@ const validateCoupon = async (couponId, cart, userId, session = null) => {
 
   return coupon;
 };
-
-/**
- * Create or update a user's cart with full variant, stock, and discount calculations.
- */
-
-/**
- * Utility: Calculate final price for a product with optional variant.
- * @param {Object} product - Product document
- * @param {Object} variantInput - { name, value, quantity }
- * @param {Date} now - Current date
- * @returns {Object} { finalPrice, sku }
- */
-export const getFinalProductPrice = (
-  product,
-  variantInput = {}, // default to empty object for safety
-  now = new Date()
-) => {
-  let finalPrice = product.basePrice;
-
-  // Check discount validity
-  if (
-    product.discountPrice &&
-    product.discountStart &&
-    product.discountEnd &&
-    product.discountStart <= now &&
-    product.discountEnd >= now
-  ) {
-    finalPrice = product.discountPrice;
-  }
-
-  // Handle variant logic if product has variants
-  if (product.variants && product.variants.length > 0) {
-    // Ensure variantInput provided
-    if (!variantInput.name || !variantInput.value) {
-      throw AppErrors.badRequest(
-        `Variant selection required for product ${product.name}`
-      );
-    }
-
-    const variant = product.variants.find(
-      (v) => v.name === variantInput.name && !v.isDeleted
-    );
-    if (!variant)
-      throw AppErrors.badRequest(
-        `Variant ${variantInput.name} not found for product ${product.name}`
-      );
-
-    const option = variant.options.find((o) => o.value === variantInput.value);
-    if (!option)
-      throw AppErrors.badRequest(
-        `Option ${variantInput.value} not available for variant ${variant.name} of ${product.name}`
-      );
-
-    // Check option stock availability
-    if (option.stock !== undefined && variantInput.quantity > option.stock)
-      throw AppErrors.badRequest(
-        `Not enough stock for ${variant.name} option ${option.value} of ${product.name}`
-      );
-
-    finalPrice += option.priceModifier || 0;
-
-    return { finalPrice, sku: option.sku || null };
-  }
-
-  // Check base product stock
-  if (product.stock !== undefined && variantInput.quantity > product.stock)
-    throw AppErrors.badRequest(`Not enough stock for product ${product.name}`);
-
-  return { finalPrice, sku: product.sku || null };
-};
-
-/**
- * Helper: Calculate total of cart items.
- * @param {Array} items - Cart items array
- * @returns {Number} total
- */
-export const calculateCartTotal = (items) => {
-  return items.reduce((acc, item) => acc + item.price * item.quantity, 0);
-};
-
 /**
  * Create or update a user's cart with full variant, stock, and discount calculations.
  * @param {String} userId - User ID
@@ -158,7 +77,7 @@ const createOrUpdateCart = async (userId, cartData) => {
 
   try {
     const { items, coupon } = cartData;
-
+    console.log(items,coupon)
     let cart = await Cart.findOne({ user: userId }).session(session);
     if (!cart) cart = new Cart({ user: userId, items: [] });
 
@@ -167,23 +86,26 @@ const createOrUpdateCart = async (userId, cartData) => {
       const products = await Product.find({ _id: { $in: productIds } })
         .session(session)
         .lean();
-
+      console.log(products);
       const now = new Date();
       const productMap = new Map(products.map((p) => [p._id.toString(), p]));
 
       for (const item of items) {
+        console.log("item" ,item)
         const product = productMap.get(item.product.toString());
+        console.log("product", product)
         if (!product)
           throw AppErrors.notFound(`Product with id ${item.product} not found`);
 
         if (product.isDeleted)
           throw AppErrors.badRequest(`Product ${product.name} is deleted`);
 
-        const { finalPrice, sku } = getFinalProductPrice(
-          product,
-          { ...item.variant, quantity: item.quantity },
-          now
-        );
+          const { finalPrice, sku } = getFinalProductPrice(
+            product,
+            item.variant || [],
+            item.quantity,
+            new Date()
+          );
 
         item.price = finalPrice;
         if (sku) item.sku = sku;
@@ -196,31 +118,62 @@ const createOrUpdateCart = async (userId, cartData) => {
 
     // ============ Coupon logic (commented for dev/test) ============
     if (coupon) {
-      const validCoupon = await validateCoupon(coupon, cart, userId, session);
-      cart.coupon = validCoupon._id;
+      const validCoupon = await CouponService.getCouponById(coupon, session);
+      if (!validCoupon) throw AppErrors.notFound("Coupon not found");
+      if (!validCoupon.active)
+        throw AppErrors.badRequest("Coupon is not active");
+      if (validCoupon.expiryDate && validCoupon.expiryDate < now) {
+        throw AppErrors.badRequest("Coupon has expired");
+      }
+      if (validCoupon.minimumAmount && cart.total < validCoupon.minimumAmount) {
+        throw AppErrors.badRequest(
+          `Minimum cart total of ${validCoupon.minimumAmount} required`
+        );
+      }
+      if (
+        validCoupon.maxUsage &&
+        validCoupon.usageCount >= validCoupon.maxUsage
+      ) {
+        throw AppErrors.badRequest("Coupon usage limit reached");
+      }
 
-      if (validCoupon.amount) {
-        cart.discount = validCoupon.amount;
-      } else if (validCoupon.percentage) {
-        cart.discount = cart.total * (validCoupon.percentage / 100);
-        if (validCoupon.maxDiscount && cart.discount > validCoupon.maxDiscount) {
+      // if new coupon applied
+      if (
+        !cart.coupon ||
+        cart.coupon.toString() !== validCoupon._id.toString()
+      ) {
+        cart.coupon = validCoupon._id;
+        // if (validCoupon.usageCount !== undefined) {
+        //   validCoupon.usageCount += 1;
+        //   await validCoupon.save({ session });
+        // }
+      }
+
+      // Calculate discount
+      if (validCoupon.type === "fixed") {
+        cart.discount = Math.min(validCoupon.value, cart.total);
+        if (
+          validCoupon.maxDiscount &&
+          cart.discount > validCoupon.maxDiscount
+        ) {
+          cart.discount = validCoupon.maxDiscount;
+        }
+      } else if (validCoupon.type === "percentage") {
+        cart.discount = cart.total * (validCoupon.value / 100);
+        if (
+          validCoupon.maxDiscount &&
+          cart.discount > validCoupon.maxDiscount
+        ) {
           cart.discount = validCoupon.maxDiscount;
         }
       } else {
         cart.discount = 0;
       }
-
-      cart.totalAfterDiscount = cart.total - cart.discount;
     } else {
       cart.coupon = null;
       cart.discount = 0;
-      cart.totalAfterDiscount = cart.total;
     }
-    cart.coupon = null;
-    cart.discount = 0;
-    cart.totalAfterDiscount = cart.total;
-
-    if (cart.totalAfterDiscount < 0) cart.totalAfterDiscount = 0;
+    cart.totalAfterDiscount = Math.max(0, cart.total - cart.discount);
 
     await cart.save({ session });
     await session.commitTransaction();
@@ -236,184 +189,189 @@ const createOrUpdateCart = async (userId, cartData) => {
   }
 };
 
+//
 
-/**
- * Update a cart by user ID.
- * @param {String} userId - User ID
- * @param {Object} updateData - Data to update the cart 
- */
-// handling stock quantitiy and not recommend 
-export const updateCart = async (userId, cartData) => {
+const updateCart = async (userId, cartData) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
     const { items, coupon } = cartData;
+    const now = new Date();
 
-    // "" Fetch existing cart
-    let cart = await Cart.findOne({ user: userId, isDeleted: false }).session(session);
+    let cart = await Cart.findOne({ user: userId, isDeleted: false }).session(
+      session
+    );
     if (!cart) throw AppErrors.notFound("Cart not found for this user");
 
-    // "" Prepare product data for validation & price calculation
-    const productIds = items.map(i => i.product);
-    const products = await Product.find({ _id: { $in: productIds }, isDeleted: false })
+    // Get all product IDs
+    const productIds = items.map((i) => i.product);
+    const products = await Product.find({
+      _id: { $in: productIds },
+      isDeleted: false,
+    })
       .session(session)
       .lean();
-    const productMap = new Map(products.map(p => [p._id.toString(), p]));
-    const now = new Date();
+
+    const productMap = new Map(products.map((p) => [p._id.toString(), p]));
+
+    const updatedItems = [];
 
     for (const incomingItem of items) {
       const product = productMap.get(incomingItem.product.toString());
-      if (!product) throw AppErrors.notFound(`Product with id ${incomingItem.product} not found`);
-      if (product.isDeleted) throw AppErrors.badRequest(`Product ${product.name} is deleted`);
+      if (!product)
+        throw AppErrors.notFound(`Product ${incomingItem.product} not found`);
 
-      // "" Calculate base or discount price
+      // Base price with discount check
       let price = product.basePrice;
-      if (product.discountPrice > 0 && product.discountStart && product.discountEnd) {
+      if (
+        product.discountPrice > 0 &&
+        product.discountStart &&
+        product.discountEnd
+      ) {
         if (now >= product.discountStart && now <= product.discountEnd) {
           price = product.discountPrice;
         }
       }
 
-      // "" Variant price modifier and stock validation
-      let variantModifier = 0;
       let variantSku = null;
+      let availableStock = product.stock || 0;
+      let variantModifier = 0;
 
-      const variantName = incomingItem.variant.name;
-      const variantValue = incomingItem.variant.value;
-      if (incomingItem.variant) {
+      // ✅ Handle array of variants
+      if (
+        Array.isArray(incomingItem.variant) &&
+        incomingItem.variant.length > 0
+      ) {
+        console.log("Incoming item variants:", incomingItem.variant);
+        for (const { name, value } of incomingItem.variant) {
+          const variant = product.variants.find(
+            (v) => v.name === name && !v.isDeleted
+          );
+          if (!variant)
+            throw AppErrors.badRequest(
+              `Variant ${name} not found for ${product.name}`
+            );
 
-        const variant = product.variants.find(v => v.name === variantName && !v.isDeleted);
-        if (!variant) throw AppErrors.badRequest(`Variant ${variantName} not found for ${product.name}`);
-
-        const option = variant.options.find(o => o.value === variantValue);
-        if (!option) throw AppErrors.badRequest(`Option ${variantValue} not found in variant ${variantName} for ${product.name}`);
-
-        variantModifier = option.priceModifier || 0;
-        variantSku = option.sku || null;
-
-        // "" Stock check for variant option if stock is defined
-        if (option.stock !== undefined && option.stock < incomingItem.quantity) {
-          throw AppErrors.badRequest(`Insufficient stock for ${product.name} - ${variantName}: ${variantValue}`);
+          const option = variant.options.find((o) => o.value === value);
+          if (!option)
+            throw AppErrors.badRequest(
+              `Option ${value} not found in ${name} for ${product.name}`
+            );
+          console.log("Variant option:", option);
+          variantModifier += option.priceModifier || 0;
+          variantSku = option.sku || variantSku;
+          if (option.stock !== undefined) {
+            console.log("Variant stock:", option.stock);
+            availableStock = option.stock;
+          }
+          if (availableStock < incomingItem.quantity) {
+            throw AppErrors.badRequest(
+              `Insufficient stock for ${product.name}. Available: ${availableStock}, Requested: ${incomingItem.quantity}`
+            );
+          }
         }
       }
-
       const finalPrice = price + variantModifier;
 
-      // "" Check if same variant combination exists in cart
-      const existingItemIndex = cart.items.findIndex(cartItem => {
-        if (cartItem.product.toString() !== incomingItem.product.toString()) return false;
+      // Compare variants as arrays
+      const existingCartItem = cart.items.find((cartItem) => {
+        if (cartItem.product.toString() !== incomingItem.product.toString())
+          return false;
 
-        const cartVariant = cartItem.variant || {};
-        const incomingVariant = incomingItem.variant || {};
-        return cartVariant.name === incomingVariant.name && cartVariant.value === incomingVariant.value;
+        const cartVariants = cartItem.variant || [];
+        const incomingVariants = incomingItem.variant || [];
+
+        if (cartVariants.length !== incomingVariants.length) return false;
+
+        return cartVariants.every((cv) =>
+          incomingVariants.some(
+            (iv) => iv.name === cv.name && iv.value === cv.value
+          )
+        );
       });
 
-      console.log(incomingItem.quantity)
-      if (existingItemIndex >= 0) {
-        // "" Update existing item quantity and fields
-        cart.items[existingItemIndex].quantity = incomingItem.quantity;
-        cart.items[existingItemIndex].price = finalPrice;
-        cart.items[existingItemIndex].variant = incomingItem.variant;
-      } else {
-        // "" Add as new item
-        cart.items.push({
-          product: incomingItem.product,
-          quantity: incomingItem.quantity,
-          variant: incomingItem.variant,
-          price: finalPrice,
-          sku: variantSku
-        });
-      }
-
-      // "" Reduce variant option stock immediately (if your business logic reserves it)
-      // Uncomment if needed:
-      console.log(incomingItem.quantity)
-      if (incomingItem.variant) {
-        await Product.updateOne(
-          { _id: product._id, "variants.name": variantName, "variants.options.value": variantValue },
-          { $inc: { "variants.$[v].options.$[o].stock": -incomingItem.quantity } },
-          {
-            arrayFilters: [
-              { "v.name": variantName },
-              { "o.value": variantValue }
-            ],
-            session
-          }
-        );
-      }
+      updatedItems.push({
+        product: incomingItem.product,
+        quantity: incomingItem.quantity,
+        variant: incomingItem.variant || [],
+        price: finalPrice,
+        sku: variantSku,
+      });
     }
 
-    // "" Recalculate cart total
-    cart.total = cart.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+    // Update cart
+    cart.items = updatedItems;
+    cart.total = cart.items.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
 
-    // "" Coupon logic with usage update
+    // Handle coupon
     if (coupon) {
       const validCoupon = await CouponService.getCouponById(coupon, session);
       if (!validCoupon) throw AppErrors.notFound("Coupon not found");
-      if (!validCoupon.isActive) throw AppErrors.badRequest("Coupon is not active");
-      if (validCoupon.expiryDate && validCoupon.expiryDate < now)
+      if (!validCoupon.active)
+        throw AppErrors.badRequest("Coupon is not active");
+      if (validCoupon.expiryDate && validCoupon.expiryDate < now) {
         throw AppErrors.badRequest("Coupon has expired");
-      if (validCoupon.minimumAmount && cart.total < validCoupon.minimumAmount)
-        throw AppErrors.badRequest(`Minimum cart total of ${validCoupon.minimumAmount} required`);
+      }
+      if (validCoupon.minimumAmount && cart.total < validCoupon.minimumAmount) {
+        throw AppErrors.badRequest(
+          `Minimum cart total of ${validCoupon.minimumAmount} required`
+        );
+      }
 
       cart.coupon = validCoupon._id;
 
-      if (validCoupon.amount) {
-        cart.discount = validCoupon.amount;
-      } else if (validCoupon.percentage) {
-        cart.discount = cart.total * (validCoupon.percentage / 100);
-        if (validCoupon.maxDiscount && cart.discount > validCoupon.maxDiscount) {
-          cart.discount = validCoupon.maxDiscount;
-        }
+      if (validCoupon.type === "fixed") {
+        cart.discount = Math.min(validCoupon.value, cart.total);
+      } else if (validCoupon.type === "percentage") {
+        cart.discount = cart.total * (validCoupon.value / 100);
       } else {
         cart.discount = 0;
       }
 
-      // "" Increment coupon usage count if your business logic requires
-      if (validCoupon.usageCount !== undefined) {
-        validCoupon.usageCount += 1;
-        await validCoupon.save({ session });
+      if (validCoupon.maxDiscount && cart.discount > validCoupon.maxDiscount) {
+        cart.discount = validCoupon.maxDiscount;
       }
     } else {
       cart.coupon = null;
       cart.discount = 0;
     }
 
-    // "" Calculate totalAfterDiscount
-    cart.totalAfterDiscount = cart.total - cart.discount;
-    if (cart.totalAfterDiscount < 0) cart.totalAfterDiscount = 0;
+    cart.totalAfterDiscount = Math.max(0, cart.total - cart.discount);
+    cart.updatedAt = new Date();
 
     await cart.save({ session });
     await session.commitTransaction();
-    session.endSession();
-
-    await cart.populate({
-      path: "items.product",
-      select: "name images basePrice discountPrice category brand",
-      populate: [
-        { path: "category", select: "name" },
-      ]
-    });
 
     return cart;
   } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
+    if (session.inTransaction()) await session.abortTransaction();
     throw error;
+  } finally {
+    session.endSession();
   }
 };
+
 /**
  * Get a cart by user ID.
  */
 const getCartByUserId = async (userId) => {
-  const cart = await Cart.findOne({ user: userId }).populate({
-    path: "items.product",
-    populate: [
-      { path: "category", select: "name" },
-      { path: "store", select: "name" }
-    ],
-  });
+  const cart = await Cart.findOne({ user: userId }).populate([
+    {
+      path: "items.product",
+      populate: [
+        { path: "category", select: "name" },
+        { path: "store", select: "name" },
+      ],
+    },
+    {
+      path: "coupon",
+      select: "code discount type",
+    },
+  ]);
 
   if (!cart) throw AppErrors.notFound("Cart not found for this user");
 
@@ -439,48 +397,6 @@ export const deleteCart = async (userId) => {
     }
 
     // =========================
-    // "" Handle product stock reversal if your system reserves stock on cart addition
-    // =========================
-    for (const item of cart.items) {
-      const product = item.product;
-
-      if (product && product.stock !== undefined) {
-        // "" Handle variant stock reversal if applicable
-        if (item.variant && product.variants && product.variants.length > 0) {
-          for (const variant of product.variants) {
-            if (variant.options && variant.options.length > 0) {
-              for (const option of variant.options) {
-                const variantKey = Object.keys(item.variant)[0];
-                const variantValue = item.variant[variantKey];
-
-                if (option.value === variantValue) {
-                  option.stock += item.quantity;
-                }
-              }
-            }
-          }
-        }
-
-        await product.save({ session });
-      }
-    }
-
-    // =========================
-    // "" Coupon usage reversal
-    // =========================
-    // for dev
-    if (cart.coupon) {
-      const coupon = cart.coupon;
-
-      if (coupon.usageCount !== undefined) {
-        coupon.usageCount -= 1;
-        if (coupon.usageCount < 0) coupon.usageCount = 0;
-
-        await coupon.save({ session });
-      }
-    }
-
-    // =========================
     // "" Soft delete the cart
     // =========================
     cart.isDeleted = true;
@@ -490,7 +406,6 @@ export const deleteCart = async (userId) => {
     session.endSession();
 
     return { success: true, message: "Cart soft deleted successfully" };
-
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
@@ -501,22 +416,120 @@ export const deleteCart = async (userId) => {
 /**
  * Add an item to the user's cart.
  */
-const addItemToCart = async (userId, itemData) => {
+/**
+ * Helper: Calculate final price & validate variants/stock.
+ */
+export const getFinalProductPrice = (
+  product,
+  variantInput = [], // array of { name, value }
+  quantity = 1,
+  now = new Date()
+) => {
+  let finalPrice = product.basePrice;
+
+  // Check discount validity
+  if (
+    product.discountPrice &&
+    product.discountStart &&
+    product.discountEnd &&
+    product.discountStart <= now &&
+    product.discountEnd >= now
+  ) {
+    finalPrice = product.discountPrice;
+  }
+
+  let sku = null;
+  let minStock = Infinity;
+
+  if (product.variants && product.variants.length > 0) {
+    if (!Array.isArray(variantInput) || variantInput.length === 0) {
+      console.log("No variant selected", variantInput)
+      throw AppErrors.badRequest(
+        `Variant selection required for product ${product.name}`
+      );
+    }
+
+    for (const vInput of variantInput) {
+      const variant = product.variants.find(
+        (v) => v.name === vInput.name && !v.isDeleted
+      );
+      if (!variant)
+        throw AppErrors.badRequest(
+          `Variant ${vInput.name} not found for product ${product.name}`
+        );
+
+      const option = variant.options.find(
+        (o) => o.value === vInput.value && !o.isDeleted
+      );
+      if (!option)
+        throw AppErrors.badRequest(
+          `Option ${vInput.value} not available for variant ${variant.name} of ${product.name}`
+        );
+
+      // Check stock
+      if (option.stock !== undefined) {
+        minStock = Math.min(minStock, option.stock);
+      }
+
+      finalPrice += option.priceModifier || 0;
+      sku = option.sku || sku;
+    }
+
+    if (minStock !== Infinity && quantity > minStock) {
+      throw AppErrors.badRequest(
+        `Not enough stock for product ${product.name} with selected options`
+      );
+    }
+  } else {
+    // Base product stock
+    if (product.stock !== undefined && quantity > product.stock)
+      throw AppErrors.badRequest(
+        `Not enough stock for product ${product.name}`
+      );
+  }
+
+  return { finalPrice, sku };
+};
+
+/**
+ * Helper: Calculate total of cart items.
+ */
+export const calculateCartTotal = (items) => {
+  return items.reduce((acc, item) => acc + item.price * item.quantity, 0);
+};
+
+/**
+ * Add item to cart.
+ */
+export const addItemToCart = async (userId, itemData) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    if (itemData.quantity <= 0)
+    if (itemData.quantity <= 0) {
       throw AppErrors.badRequest("Quantity must be greater than zero");
+    }
 
-    const product = await Product.findById(itemData.productId).session(session);
-    if (!product || product.isDeleted)
+    const product = await Product.findById(itemData.product).session(session);
+    if (!product || product.isDeleted) {
       throw AppErrors.notFound("Product not found or not available for sale");
+    }
 
-    // Calculate final price and validate variant and stock using your util
+    // Helper: deep compare for variant arrays
+    function areVariantsEqual(v1 = [], v2 = []) {
+      if (v1.length !== v2.length) return false;
+      return v1.every((attr1) =>
+        v2.some(
+          (attr2) => attr1.name === attr2.name && attr1.value === attr2.value
+        )
+      );
+    }
+
+    // Calculate final price and validate variants/stock
     const { finalPrice, sku } = getFinalProductPrice(
       product,
-      { ...itemData.variant, quantity: itemData.quantity },
+      itemData.variant || [],
+      itemData.quantity,
       new Date()
     );
 
@@ -528,11 +541,11 @@ const addItemToCart = async (userId, itemData) => {
       });
     }
 
+    // 🔹 Check if item already exists with same product + variant
     const existingItem = cart.items.find(
       (item) =>
-        item.product.toString() === itemData.productId &&
-        JSON.stringify(item.variant || {}) ===
-          JSON.stringify(itemData.variant || {})
+        item.product.toString() === itemData.product.toString() &&
+        areVariantsEqual(item.variant || [], itemData.variant || [])
     );
 
     if (existingItem) {
@@ -541,23 +554,72 @@ const addItemToCart = async (userId, itemData) => {
       if (sku) existingItem.sku = sku;
     } else {
       cart.items.push({
-        product: itemData.productId,
+        product: itemData.product,
         quantity: itemData.quantity,
-        variant: itemData.variant || undefined,
+        variant: itemData.variant || [],
         price: finalPrice,
+        sku: sku || undefined,
       });
     }
 
-    // Recalculate total using your utility
+    // Recalculate total
     cart.total = calculateCartTotal(cart.items);
 
-    // Handle coupon recalculation if cart has a valid coupon (optional logic here)
-    if (cart.coupon) {
-      // Implement coupon recalculation logic if needed
+    // Coupon logic
+    const coupon = cart.coupon;
+    if (coupon) {
+      const validCoupon = await CouponService.getCouponById(coupon, session);
+      if (!validCoupon) throw AppErrors.notFound("Coupon not found");
+      if (!validCoupon.active)
+        throw AppErrors.badRequest("Coupon is not active");
+      if (validCoupon.expiryDate && validCoupon.expiryDate < new Date()) {
+        throw AppErrors.badRequest("Coupon has expired");
+      }
+      if (validCoupon.minimumAmount && cart.total < validCoupon.minimumAmount) {
+        throw AppErrors.badRequest(
+          `Minimum cart total of ${validCoupon.minimumAmount} required`
+        );
+      }
+      if (
+        validCoupon.maxUsage &&
+        validCoupon.usageCount >= validCoupon.maxUsage
+      ) {
+        throw AppErrors.badRequest("Coupon usage limit reached");
+      }
+
+      if (
+        !cart.coupon ||
+        cart.coupon.toString() !== validCoupon._id.toString()
+      ) {
+        cart.coupon = validCoupon._id;
+      }
+
+      if (validCoupon.type === "fixed") {
+        cart.discount = Math.min(validCoupon.value, cart.total);
+        if (
+          validCoupon.maxDiscount &&
+          cart.discount > validCoupon.maxDiscount
+        ) {
+          cart.discount = validCoupon.maxDiscount;
+        }
+      } else if (validCoupon.type === "percentage") {
+        cart.discount = cart.total * (validCoupon.value / 100);
+        if (
+          validCoupon.maxDiscount &&
+          cart.discount > validCoupon.maxDiscount
+        ) {
+          cart.discount = validCoupon.maxDiscount;
+        }
+      } else {
+        cart.discount = 0;
+      }
     } else {
+      cart.coupon = null;
       cart.discount = 0;
-      cart.totalAfterDiscount = cart.total;
     }
+
+    cart.totalAfterDiscount = Math.max(0, cart.total - cart.discount);
+    cart.updatedAt = new Date();
 
     await cart.save({ session });
     await session.commitTransaction();
@@ -574,27 +636,26 @@ const addItemToCart = async (userId, itemData) => {
 /**
  * Remove an item from the user's cart.
  */
-const removeItemFromCart = async (userId, itemData) => {
+const removeItemFromCart = async (userId, itemId) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    const { productId, variant } = itemData;
-
     const cart = await Cart.findOne({ user: userId })
       .populate("items.product")
       .session(session);
 
     if (!cart) throw AppErrors.notFound("Cart not found for this user");
-
+    console.log("itemid", itemId);
     // Find item index matching productId and variant (if any)
-    const itemIndex = cart.items.findIndex((item) =>
-      item.product._id.toString() === productId &&
-      JSON.stringify(item.variant || {}) === JSON.stringify(variant || {})
+    const itemIndex = cart.items.findIndex(
+      (item) => item._id.toString() === itemId.toString()
     );
 
     if (itemIndex === -1)
-      throw AppErrors.badRequest("Product with specified variant not found in cart");
+      throw AppErrors.badRequest(
+        "Product with specified variant not found in cart"
+      );
 
     // Remove item from cart
     cart.items.splice(itemIndex, 1);
@@ -603,25 +664,66 @@ const removeItemFromCart = async (userId, itemData) => {
     cart.total = calculateCartTotal(cart.items);
 
     // Recalculate discount and totalAfterDiscount if a coupon exists
-    if (cart.coupon) {
-      const validCoupon = await CouponService.getCouponById(cart.coupon, session);
-      if (validCoupon) {
-        if (validCoupon.amount) cart.discount = validCoupon.amount;
-        else if (validCoupon.percentage) {
-          cart.discount = cart.total * (validCoupon.percentage / 100);
-          if (validCoupon.maxDiscount && cart.discount > validCoupon.maxDiscount) {
-            cart.discount = validCoupon.maxDiscount;
-          }
-        } else {
-          cart.discount = 0;
+    const now = new Date();
+    const coupon = cart.coupon;
+    if (coupon) {
+      const validCoupon = await CouponService.getCouponById(coupon, session);
+      if (!validCoupon) throw AppErrors.notFound("Coupon not found");
+      if (!validCoupon.active)
+        throw AppErrors.badRequest("Coupon is not active");
+      if (validCoupon.expiryDate && validCoupon.expiryDate < now) {
+        throw AppErrors.badRequest("Coupon has expired");
+      }
+      if (validCoupon.minimumAmount && cart.total < validCoupon.minimumAmount) {
+        throw AppErrors.badRequest(
+          `Minimum cart total of ${validCoupon.minimumAmount} required`
+        );
+      }
+      if (
+        validCoupon.maxUsage &&
+        validCoupon.usageCount >= validCoupon.maxUsage
+      ) {
+        throw AppErrors.badRequest("Coupon usage limit reached");
+      }
+
+      // if new coupon applied
+      if (
+        !cart.coupon ||
+        cart.coupon.toString() !== validCoupon._id.toString()
+      ) {
+        cart.coupon = validCoupon._id;
+        // if (validCoupon.usageCount !== undefined) {
+        //   validCoupon.usageCount += 1;
+        //   await validCoupon.save({ session });
+        // }
+      }
+
+      // Calculate discount
+      if (validCoupon.type === "fixed") {
+        cart.discount = Math.min(validCoupon.value, cart.total);
+        if (
+          validCoupon.maxDiscount &&
+          cart.discount > validCoupon.maxDiscount
+        ) {
+          cart.discount = validCoupon.maxDiscount;
         }
-        cart.totalAfterDiscount = cart.total - cart.discount;
+      } else if (validCoupon.type === "percentage") {
+        cart.discount = cart.total * (validCoupon.value / 100);
+        if (
+          validCoupon.maxDiscount &&
+          cart.discount > validCoupon.maxDiscount
+        ) {
+          cart.discount = validCoupon.maxDiscount;
+        }
+      } else {
+        cart.discount = 0;
       }
     } else {
+      cart.coupon = null;
       cart.discount = 0;
-      cart.totalAfterDiscount = cart.total;
     }
-
+    cart.totalAfterDiscount = Math.max(0, cart.total - cart.discount);
+    cart.updatedAt = new Date();
     // Ensure no negative totalAfterDiscount
     if (cart.totalAfterDiscount < 0) cart.totalAfterDiscount = 0;
 
@@ -649,9 +751,9 @@ const removeItemFromCart = async (userId, itemData) => {
 const applyFilters = (queryParams) => {
   const filters = {};
 
-  if (queryParams.selectedStatus === 'Active') {
+  if (queryParams.selectedStatus === "Active") {
     filters.isDeleted = false;
-  } else if (queryParams.selectedStatus === 'Deleted') {
+  } else if (queryParams.selectedStatus === "Deleted") {
     filters.isDeleted = true;
   }
   // if 'all' or undefined => no filter applied for isDeleted
@@ -694,15 +796,15 @@ const getAllCarts = async (page = 1, limit = 20, sortBy, queryParams = {}) => {
       .skip(skip)
       .limit(limit)
       .populate({
-        path: 'user',
-        select: 'userName email role',
+        path: "user",
+        select: "userName email role",
       })
       .populate({
-        path: 'items.product',
-        select: 'name basePrice discountPrice category',
+        path: "items.product",
+        select: "name basePrice discountPrice category",
         populate: {
-          path: 'category',
-          select: 'name',
+          path: "category",
+          select: "name",
         },
       })
       .lean(),
@@ -711,7 +813,7 @@ const getAllCarts = async (page = 1, limit = 20, sortBy, queryParams = {}) => {
   ]);
 
   const totalPages = Math.ceil(total / limit);
-
+  console.log(`Total pages: ${carts}`);
   return {
     carts,
     total,
@@ -730,44 +832,40 @@ const adminGetCartById = async (cartId) => {
     })
     .populate({
       path: "items.product",
-      select: "name basePrice discountPrice category ",
-      populate: [
-        { path: "category", select: "name" },
-      ],
+      select: "name description basePrice discountPrice category ",
+      populate: [{ path: "category", select: "name" }],
     })
     .lean();
-    console.log(cart);
+  console.log(cart);
 
   if (!cart) throw AppErrors.notFound("Cart not found");
 
   return cart;
-}
+};
 /**
  * Admin: Delete a cart by ID.
  */
 const adminDeleteCartById = async (cartId) => {
   const cart = await Cart.findById(cartId);
   if (!cart) throw AppErrors.notFound("Cart not found");
-  const userId = cart.user
-  deleteCart(userId).then(() => {
-    return { success: true, message: "Cart deleted successfully" };
-  }).catch(error => {
-    throw error;
-  });
-}
+  const userId = cart.user;
+  deleteCart(userId)
+    .then(() => {
+      console.log("Cart deleted successfully");
+      return { success: true, message: "Cart deleted successfully" };
+    })
+    .catch((error) => {
+      throw error;
+    });
+};
 
 const adminUpdateCart = async (cartId, updateData) => {
   const cart = await Cart.findById(cartId);
   if (!cart) throw AppErrors.notFound("Cart not found");
   const userId = cart.user;
-  updateCart(userId, updateData)
-    .then(updatedCart => {
-      return updatedCart;
-    })
-    .catch(error => {
-      throw error;
-    });
-}
+  const updatedCart = await updateCart(userId, updateData);
+  return updatedCart;
+};
 export default {
   createOrUpdateCart,
   updateCart,
@@ -779,5 +877,5 @@ export default {
   validateCoupon,
   adminGetCartById,
   adminDeleteCartById,
-  adminUpdateCart
+  adminUpdateCart,
 };
