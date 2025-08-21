@@ -8,7 +8,10 @@ import Coupon from "../models/cuponModel.js";
 const getCouponById = async (couponId) => {
     return await Coupon.findById(couponId);
 };
-
+/** **/
+const getCouponByCode = async (code) => {
+    return await Coupon.findOne({ code });
+};
 /**
  * Check if a user has already used a coupon.
  * @param {string} couponId
@@ -27,4 +30,5 @@ const hasUserUsedCoupon = async (couponId, userId) => {
 export default {
   getCouponById,
   hasUserUsedCoupon,
+  getCouponByCode
 };
