@@ -35,11 +35,24 @@ router.get("/:storeId", storeController.getStoreById);
  * ================================
  */
 
+
+
+
 // Global authentication & authorization for routes below
 
 //for prod
 router.use(requireAuth);
 
+/**
+ * @route GET /stores/vendor
+ * @desc Get stores of the authenticated vendor/admin
+ * @access Private (Vendor/Admin)
+ */
+router.get(
+  "/vendor/vendor",
+  checkRole([userRole.VENDOR, userRole.ADMIN]),
+  storeController.getStoresByVendor
+);
 /**
  * @route /stores
  * @desc Create store
@@ -62,7 +75,7 @@ router.route("/")
  */
 router.route("/:storeId")
   .patch(
-    uploadCloudinary.single("image"),
+    uploadCloudinary.single("logoUrl"),
     // upload.single("image"),
     storeParserMiddleware,
     checkRole([userRole.VENDOR,userRole.ADMIN]),
