@@ -32,16 +32,39 @@ import cartRoute from "./routes/cart.route.js";
 import couponRouter from "./routes/cupon.route.js";
 import reviewRouter from "./routes/review.route.js";
 
+// rag import 
+import ragHandler from "./rag/rag.js";
+import { addDocument } from "./rag/vectorStore.js";
+import getEmbedding from "./rag/embed.js";
+import Product from "./models/productModel.js";
+import User from "./models/userModel.js";
+import Cart from "./models/cartModel.js";
+import Order from "./models/orderModel.js";
+import Payment from "./models/paymentModel.js";
+import Coupon from "./models/cuponModel.js";
+import Store from "./models/storeModel.js";
+import Category from "./models/categoryModel.js";
+import Review from "./models/reviewModel.js";
+
 //*------------------------------------app setup------------------------------------*//
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 //*------------------------------------middlewares------------------------------------*//
 app.use(helmet());
+const allowedOrigins = ["http://localhost:3000", "http://localhost:4200"];
+
 app.use(
   cors({
-    origin: "http://localhost:4200",
-    credentials: true,
+    origin: function (origin, callback) {
+      // Allow requests if origin is in the list or if request has no origin (like Postman)
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true, // allows sending/receiving cookies
   })
 );
 
@@ -83,14 +106,134 @@ app.use(
 );
 // means that uploads/Category is a static folder
 app.use("/api/product", productRoute);
-
 // user Route
+
+// rag middleware
+app.post("/rag", ragHandler);
 
 //*------------------------------------error handler (last)------------------------------------*//
 app.use(errorHandler);
 
 //*------------------------------------db + server start------------------------------------*//
 connecToDb();
+
+//*----------------------------------- Ai Rag sys init training if you have any db ---------------------------*//
+(async () => {
+  try {
+    const [
+      products,
+      users,
+      carts,
+      orders,
+      payments,
+      coupons,
+      stores,
+      categories,
+      reviews
+    ] = await Promise.all([
+      Product.find({}),
+      User.find({}),
+      Cart.find({}),
+      Order.find({}),
+      Payment.find({}),
+      Coupon.find({}),
+      Store.find({}),
+      Category.find({}),
+      Review.find({})
+    ]);
+
+    const processBatch = async (items, getMetaFn, prefix) => {
+      const BATCH_SIZE = 10;
+      for (let i = 0; i < items.length; i += BATCH_SIZE) {
+        const batch = items.slice(i, i + BATCH_SIZE);
+        await Promise.all(batch.map(async (item) => {
+          const { text, meta } = getMetaFn(item);
+          if (!text) return;
+          await addDocument(`${prefix}-${item._id}`, text, meta);
+        }));
+      }
+    };
+
+    console.log("Seeding embeddings...");
+
+    // Products
+    await processBatch(products, p => ({
+      text: `Name: ${p.name || ""}, Description: ${p.description || ""}, Price: ${p.price || ""}, Stock: ${p.stock || ""}, Brand: ${p.brand || ""}, Category: ${p.category || ""}`,
+      meta: { type: "product", relations: { } }
+    }), "product");
+
+    // Users
+    await processBatch(users, u => ({
+      text: `Username: ${u.userName || ""}, Email: ${u.email || ""}, First Name: ${u.firstName || ""}, Last Name: ${u.lastName || ""}, Address: ${u.address || ""}, Phone: ${u.phone || ""}`,
+      meta: { type: "user", relations: { } }
+    }), "user");
+
+    // Carts
+    await processBatch(carts, c => ({
+      text: [
+        `User: ${c.user}`,
+        c.items.map(i => `Product: ${i.product}, Qty: ${i.quantity}, Price: ${i.price}, Variants: ${JSON.stringify(i.variant || {})}`).join("\n"),
+        c.coupon ? `Coupon: ${c.coupon}` : "",
+        `Total: ${c.total}, Discount: ${c.discount}, Total After Discount: ${c.totalAfterDiscount}`,
+        c.status ? `Status: ${c.status}` : ""
+      ].join("\n"),
+      meta: { type: "cart", relations: { userId: c.user, couponId: c.coupon } }
+    }), "cart");
+
+    // Orders
+    await processBatch(orders, o => ({
+      text: [
+        `User: ${o.user}`,
+        o.orderItems.map(i => `Product: ${i.product}, Qty: ${i.quantity}, Price: ${i.price}`).join("\n"),
+        o.status ? `Status: ${o.status}` : "",
+        o.shippingAddress ? `Shipping Address: ${JSON.stringify(o.shippingAddress)}` : "",
+        o.paymentId ? `Payment ID: ${o.paymentId}` : "",
+        o.totalAmount ? `Total Amount: ${o.totalAmount}` : ""
+      ].join("\n"),
+      meta: { type: "order", relations: { userId: o.user, paymentId: o.paymentId } }
+    }), "order");
+
+    // Payments
+    await processBatch(payments, p => ({
+      text: `User: ${p.user}, Method: ${p.paymentMethod}, Amount: ${p.amount}, Transaction ID: ${p.transactionId || ""}, Status: ${p.status || ""}, Date: ${p.date || ""}`,
+      meta: { type: "payment", relations: { userId: p.user } }
+    }), "payment");
+
+    // Coupons
+    await processBatch(coupons, c => ({
+      text: `Code: ${c.code}, Value: ${c.value}, Used Count: ${c.usedCount}, Expiration Date: ${c.expirationDate || ""}, Min Order Amount: ${c.minOrderAmount || ""}`,
+      meta: { type: "coupon" }
+    }), "coupon");
+
+    // Stores
+    await processBatch(stores, s => ({
+      text: `Store: ${s.name}, Owner: ${s.owner || ""}, Description: ${s.description || ""}, Address: ${s.address || ""}, Phone: ${s.phone || ""}, Products Count: ${s.productsCount || 0}, Rating: ${s.rating || 0}`,
+      meta: { type: "store" }
+    }), "store");
+
+    // Categories
+    await processBatch(categories, c => ({
+      text: [
+        `Category: ${c.name} (Slug: ${c.slug || ""})`,
+        c.parent ? `Parent: ${c.parent}` : "",
+        `Products: ${c.productCount || 0}, Stores: ${c.storesCount || 0}`,
+        c.image ? `Image: ${c.image}` : "",
+        c.description ? `Description: ${c.description}` : ""
+      ].join("\n"),
+      meta: { type: "category" }
+    }), "category");
+
+    // Reviews
+    await processBatch(reviews, r => ({
+      text: `Rating: ${r.rating}, Comment: ${r.comment || ""}, User: ${r.user}, Entity: ${r.entityId}, Date: ${r.date || ""}, Title: ${r.title || ""}`,
+      meta: { type: "review", relations: { userId: r.user, productId: r.entityId } }
+    }), "review");
+
+    console.log("All models seeded into MongoDB Atlas.");
+  } catch (err) {
+    console.error("Error during initial training:", err);
+  }
+})();
 
 //*------------------------------------host server ------------------------------------*//   osama saad
 app.listen(PORT, () => {
