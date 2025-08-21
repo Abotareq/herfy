@@ -1,4 +1,6 @@
 import mongoose from 'mongoose';
+import { addDocument } from '../rag/vectorStore.js';
+import Embedding from './Embedding.js';
 
 const couponSchema = new mongoose.Schema({
   code: {
@@ -49,6 +51,52 @@ const couponSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+// -------------------- Auto Incremental RAG Training -------------------- //
+
+// After create/update
+couponSchema.post("save", async function (doc) {
+  try {
+    const content = `Coupon Code: ${doc.code}, Type: ${doc.type}, Value: ${doc.value}, MinCartTotal: ${doc.minCartTotal}, MaxDiscount: ${doc.maxDiscount}, Expiry: ${doc.expiryDate}, UsageLimit: ${doc.usageLimit}, UsedCount: ${doc.usedCount}, Active: ${doc.active}, Deleted: ${doc.isDeleted}`;
+    
+    await addDocument(`${doc._id}`, content, {
+      type: "coupon",
+      couponId: doc._id,
+      code: doc.code,
+    });
+    console.log(`RAG embeddings updated for coupon ${doc._id}`);
+  } catch (err) {
+    console.error("RAG auto-train error for Coupon:", err.message);
+  }
+});
+
+// After findOneAndUpdate
+couponSchema.post("findOneAndUpdate", async function (doc) {
+  if (!doc) return;
+  try {
+    const content = `Coupon Code: ${doc.code}, Type: ${doc.type}, Value: ${doc.value}, MinCartTotal: ${doc.minCartTotal}, MaxDiscount: ${doc.maxDiscount}, Expiry: ${doc.expiryDate}, UsageLimit: ${doc.usageLimit}, UsedCount: ${doc.usedCount}, Active: ${doc.active}, Deleted: ${doc.isDeleted}`;
+    
+    await addDocument(`${doc._id}`, content, {
+      type: "coupon",
+      couponId: doc._id,
+      code: doc.code,
+    });
+    console.log(`RAG embeddings updated for coupon ${doc._id} (update)`);
+  } catch (err) {
+    console.error(" RAG auto-train error for Coupon (update):", err.message);
+  }
+});
+
+// After remove
+couponSchema.post("remove", async function (doc) {
+  try {
+    await Embedding.deleteMany({ docId: `${doc._id}`, docType: "coupon" });
+    console.log(`Deleted RAG embeddings for removed coupon ${doc._id}`);
+  } catch (err) {
+    console.error(" RAG auto-train error for Coupon (remove):", err.message);
+  }
+});
+
 
 const Coupon = mongoose.model('Coupon', couponSchema);
 export default Coupon;

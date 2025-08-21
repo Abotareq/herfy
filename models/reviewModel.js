@@ -7,9 +7,10 @@
 // }
 
 
-
 // const mongoose = require('mongoose');
 import mongoose from "mongoose";
+import { addDocument } from "../rag/vectorStore.js";
+import Embedding from "./Embedding.js";
 
 const reviewSchema = new mongoose.Schema({
   user: {
@@ -42,7 +43,40 @@ const reviewSchema = new mongoose.Schema({
 
 // To ensure a user can only review a specific product/store once
 reviewSchema.index({ user: 1, entityId: 1, entityType: 1 }, { unique: true });
+// -------------------- Auto Incremental RAG Training Hooks -------------------- //
 
+// After creating or updating a review
+reviewSchema.post('save', async function(doc) {
+  try {
+    const content = `Review by User: ${doc.user}, Entity: ${doc.entityType}-${doc.entityId}, Rating: ${doc.rating}, Comment: ${doc.comment || ''}`;
+    await addDocument(`${doc._id}`, content, { type: 'review', reviewId: doc._id, entityType: doc.entityType, entityId: doc.entityId, userId: doc.user });
+    console.log(`RAG embeddings updated for review ${doc._id}`);
+  } catch (err) {
+    console.error('RAG auto-train error for Review:', err.message);
+  }
+});
+
+// After findOneAndUpdate
+reviewSchema.post('findOneAndUpdate', async function(doc) {
+  if (!doc) return;
+  try {
+    const content = `Review by User: ${doc.user}, Entity: ${doc.entityType}-${doc.entityId}, Rating: ${doc.rating}, Comment: ${doc.comment || ''}`;
+    await addDocument(`${doc._id}`, content, { type: 'review', reviewId: doc._id, entityType: doc.entityType, entityId: doc.entityId, userId: doc.user });
+    console.log(`RAG embeddings updated for review ${doc._id} (update)`);
+  } catch (err) {
+    console.error('RAG auto-train error for Review (update):', err.message);
+  }
+});
+
+// After removing a review: delete related embeddings
+reviewSchema.post('remove', async function(doc) {
+  try {
+    await Embedding.deleteMany({ docId: `${doc._id}`, docType: 'review' });
+    console.log(`🗑️ Deleted RAG embeddings for removed review ${doc._id}`);
+  } catch (err) {
+    console.error('RAG auto-train error for Review (remove):', err.message);
+  }
+});
 const Review = mongoose.model('Review', reviewSchema);
 export default Review;
 // module.exports = Review;

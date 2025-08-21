@@ -12,6 +12,8 @@
 // }
 
 import mongoose from "mongoose";
+import { addDocument } from "../rag/vectorStore.js";
+import Embedding from "./Embedding.js";
 
 const paymentSchema = new mongoose.Schema({
   order: {
@@ -56,6 +58,49 @@ const paymentSchema = new mongoose.Schema({
   }, // When payment was refunded
 }, {
   timestamps: true,
+});
+
+// -------------------- Auto Incremental RAG Training -------------------- //
+// After create/update
+paymentSchema.post('save', async function(doc) {
+  try {
+    const content = `Payment for Order: ${doc.order}, User: ${doc.user}, Amount: ${doc.amount}, Method: ${doc.paymentMethod}, Status: ${doc.status}, Provider: ${doc.provider}, Transaction ID: ${doc.transactionId}`;
+    await addDocument(`${doc._id}`, content, {
+      type: 'payment',
+      paymentId: doc._id,
+      userId: doc.user,
+      orderId: doc.order,
+    });
+    console.log(`RAG embeddings updated for payment ${doc._id}`);
+  } catch (err) {
+    console.error('RAG auto-train error for Payment:', err.message);
+  }
+});
+
+paymentSchema.post('findOneAndUpdate', async function(doc) {
+  if (!doc) return;
+  try {
+    const content = `Payment for Order: ${doc.order}, User: ${doc.user}, Amount: ${doc.amount}, Method: ${doc.paymentMethod}, Status: ${doc.status}, Provider: ${doc.provider}, Transaction ID: ${doc.transactionId}`;
+    await addDocument(`${doc._id}`, content, {
+      type: 'payment',
+      paymentId: doc._id,
+      userId: doc.user,
+      orderId: doc.order,
+    });
+    console.log(`RAG embeddings updated for payment ${doc._id} (update)`);
+  } catch (err) {
+    console.error('RAG auto-train error for Payment (update):', err.message);
+  }
+});
+
+// After remove
+paymentSchema.post('remove', async function(doc) {
+  try {
+    await Embedding.deleteMany({ docId: `${doc._id}`, docType: 'payment' });
+    console.log(`Deleted RAG embeddings for removed payment ${doc._id}`);
+  } catch (err) {
+    console.error('RAG auto-train error for Payment (remove):', err.message);
+  }
 });
 
 const Payment = mongoose.model('Payment', paymentSchema);
