@@ -61,7 +61,7 @@ router
  * Remove item from cart
  */
 router
-  .route("/items/:productId")
+  .route("/items/:itemId")
   .delete(
     checkRole([userRole.CUSTOMER]),
     cartController.removeItemFromCart
