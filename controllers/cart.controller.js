@@ -2,6 +2,7 @@ import cartService from "../services/cart.service.js";
 import StatusCodes from "../utils/status.codes.js";
 import asyncWrapper from "../middlewares/async.wrapper.js";
 import JSEND_STATUS from "../utils/http.status.message.js";
+import couponService from "../services/coupon.service.js";
 
 /**
  * @description Apply a coupon code to the user's cart
@@ -12,10 +13,11 @@ import JSEND_STATUS from "../utils/http.status.message.js";
  */
 const applyCoupon = asyncWrapper(async (req, res) => {
   const userId = req.user.id;
-  const { code } = req.body;
-
+  const { items , code } = req.body;
+  // get coupon id
+  const coupon = await couponService.getCouponByCode(code);
   // Use cartService to handle coupon application with validations
-  const updatedCart = await cartService.updateCart(userId, { coupon: code });
+  const updatedCart = await cartService.updateCart(userId, { coupon: coupon._id , items });
 
   res.status(StatusCodes.OK).json({
     status: JSEND_STATUS.SUCCESS,
@@ -108,11 +110,8 @@ export const addItemToCart = asyncWrapper(async (req, res) => {
 export const removeItemFromCart = asyncWrapper(async (req, res) => {
   const userId = req.user._id;
   // const userId = "649c1f1f1f1f1f1f1f1f1f1f";
-  const { productId } = req.params;
-  const cart = await cartService.removeItemFromCart(userId, {
-    productId,
-    variant: req.body.variant,
-  });
+  const { itemId } = req.params;
+  const cart = await cartService.removeItemFromCart(userId, itemId);
   res.status(StatusCodes.OK).json({ status: JSEND_STATUS.SUCCESS, data: cart });
 });
 
@@ -164,8 +163,8 @@ export const adminGetCartById = asyncWrapper(async (req, res) => {
  */
 export const adminDeleteCartById = asyncWrapper(async (req, res) => {
   const { cartId } = req.params;
-  await cartService.adminDeleteCartById(cartId);
-  res.status(StatusCodes.NO_CONTENT).send();
+  const result = await cartService.adminDeleteCartById(cartId);
+  res.status(StatusCodes.CREATED).send({message : result});
 });
 
 /**

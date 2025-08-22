@@ -30,6 +30,8 @@
 
 
 import mongoose from 'mongoose';
+import Embedding from './Embedding.js';
+import { addDocument } from '../rag/vectorStore.js';
 
 const orderItemSchema = new mongoose.Schema({
   product: {
@@ -81,6 +83,65 @@ const orderSchema = new mongoose.Schema({
   storeDeletedAt: Date, // Timestamp when the store was deleted
 }, {
   timestamps: true,
+});
+
+// -------------------- Auto Incremental RAG Training -------------------- //
+// After create/update
+orderSchema.post('save', async function (doc) {
+  try {
+    const itemsSummary = doc.orderItems.map(
+      (item) => `${item.quantity}x ${item.name} (Price: ${item.price})`
+    ).join(', ');
+
+    const content = `Order for User: ${doc.user}, Items: [${itemsSummary}], 
+    Total: ${doc.totalAmount}, Status: ${doc.status}, 
+    Shipping to: ${doc.shippingAddress.street}, ${doc.shippingAddress.city}, ${doc.shippingAddress.country}`;
+
+    await addDocument(`${doc._id}`, content, {
+      type: 'order',
+      orderId: doc._id,
+      userId: doc.user,
+      couponId: doc.coupon || null,
+    });
+
+    console.log(`RAG embeddings updated for order ${doc._id}`);
+  } catch (err) {
+    console.error('RAG auto-train error for Order:', err.message);
+  }
+});
+
+orderSchema.post('findOneAndUpdate', async function (doc) {
+  if (!doc) return;
+  try {
+    const itemsSummary = doc.orderItems.map(
+      (item) => `${item.quantity}x ${item.name} (Price: ${item.price})`
+    ).join(', ');
+
+    const content = `Order for User: ${doc.user}, Items: [${itemsSummary}], 
+    Total: ${doc.totalAmount}, Status: ${doc.status}, 
+    Shipping to: ${doc.shippingAddress.street}, ${doc.shippingAddress.city}, ${doc.shippingAddress.country}`;
+
+    await addDocument(`${doc._id}`, content, {
+      type: 'order',
+      orderId: doc._id,
+      userId: doc.user,
+      couponId: doc.coupon || null,
+    });
+
+    console.log(` RAG embeddings updated for order ${doc._id} (update)`);
+  } catch (err) {
+    console.error(' RAG auto-train error for Order (update):', err.message);
+  }
+});
+
+// After remove
+orderSchema.post('remove', async function (doc) {
+  try {
+    await Embedding.deleteMany({ docId: `${doc._id}`, docType: 'order' });
+    console.log(` Deleted RAG embeddings for removed order ${doc._id}`);
+  } catch (err) {
+    console.error(' RAG auto-train error for Order (remove):', err.message);
+  }
 });
 
 const Order = mongoose.model('Order', orderSchema);
