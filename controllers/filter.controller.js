@@ -6,10 +6,11 @@ import StatusCodes from "../utils/status.codes.js";
 import Category from "../models/categoryModel.js";
 import Coupon from "../models/cuponModel.js";
 import Review from "../models/reviewModel.js";
+import ErrorResponse from "../utils/error-model.js";
 import Product from '../models/productModel.js';  
 import Store from '../models/storeModel.js';     
-import ErrorResponse from "../utils/error-model.js";
 import mongoose from "mongoose";
+
 
 export const filterCategoryByName = async (req, res, next) => {
   const { name } = req.query;
@@ -62,34 +63,52 @@ export const filterCouponByActive = async (req, res, next) => {
     next(next(new ErrorResponse(error, StatusCodes.INTERNAL_SERVER_ERROR)));
   }
 };
+
+
 export const filterReviewByProducts = async (req, res, next) => {
   try {
     const { productId, page = 1, limit = 10 } = req.query;
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Validate productId
+    if (!productId) {
+      return next(new ErrorResponse("Product ID is required", StatusCodes.BAD_REQUEST));
+    }
+
+    const parsedPage = parseInt(page);
+    const parsedLimit = parseInt(limit);
+    const skip = (parsedPage - 1) * parsedLimit;
 
     const filter = { entityType: "Product", entityId: productId };
 
-    const review = await Review.find(filter)
-      .populate("user")
-      .limit(parseInt(limit))
-      .skip(skip);
+    const [review, totalReviews] = await Promise.all([
+      Review.find(filter)
+        .populate("user")
+        .limit(parsedLimit)
+        .skip(skip),
+      Review.countDocuments(filter),
+    ]);
 
-    if (review.length === 0) {
-      return next(new ErrorResponse("Review Not Found", StatusCodes.NOT_FOUND));
-    }
+    const pagination = {
+      totalReviews,
+      currentPage: parsedPage,
+      totalPages: Math.ceil(totalReviews / parsedLimit) || 0,
+      limit: parsedLimit,
+    };
 
     res.status(StatusCodes.OK).json({
       status: httpStatus.SUCCESS,
-      data: { review },
+      data: { review, pagination },
     });
   } catch (error) {
-    next(new ErrorResponse(error, StatusCodes.INTERNAL_SERVER_ERROR));
+    next(new ErrorResponse(error.message || "Server error", StatusCodes.INTERNAL_SERVER_ERROR));
   }
 };
 
 export const filterReviewByShops = async (req, res, next) => {
   try {
     const { shopId, page = 1, limit = 10 } = req.query;
+
+    // Validate shopId
     if (!shopId) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         status: httpStatus.ERROR,
@@ -97,28 +116,33 @@ export const filterReviewByShops = async (req, res, next) => {
       });
     }
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const parsedPage = parseInt(page);
+    const parsedLimit = parseInt(limit);
+    const skip = (parsedPage - 1) * parsedLimit;
 
     const filter = { entityType: "store", entityId: shopId };
 
-    const review = await Review.find(filter)
-      .populate("user")
-      .limit(parseInt(limit))
-      .skip(skip);
+    const [review, totalReviews] = await Promise.all([
+      Review.find(filter)
+        .populate("user")
+        .limit(parsedLimit)
+        .skip(skip),
+      Review.countDocuments(filter),
+    ]);
 
-    if (review.length === 0) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        status: httpStatus.FAIL,
-        data: { message: "Can't find this shop" },
-      });
-    }
+    const pagination = {
+      totalReviews,
+      currentPage: parsedPage,
+      totalPages: Math.ceil(totalReviews / parsedLimit) || 0,
+      limit: parsedLimit,
+    };
 
     res.status(StatusCodes.OK).json({
       status: httpStatus.SUCCESS,
-      data: { review },
+      data: { review, pagination },
     });
   } catch (error) {
-    next(new ErrorResponse(error, StatusCodes.INTERNAL_SERVER_ERROR));
+    next(new ErrorResponse(error.message || "Server error", StatusCodes.INTERNAL_SERVER_ERROR));
   }
 };
 
