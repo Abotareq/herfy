@@ -78,6 +78,7 @@ import {
   updateReviews,
   deleteReview,
   deleteReviewByAdmin,
+  getUserReviews,
   getReviewsByUserId,
   getReviewSummaryRoute, // Consolidated import
 } from "../controllers/review.controller.js";
@@ -90,6 +91,60 @@ import {
 } from "../controllers/filter.controller.js";
 
 const reviewRouter = express.Router();
+reviewRouter.get(
+  "/filter/products",
+  requireAuth,
+  checkRole([userRole.ADMIN, userRole.VENDOR, userRole.CUSTOMER]),
+  filterReviewByProducts
+);
+reviewRouter.get(
+  "/filter/shops",
+  requireAuth,
+  checkRole([userRole.ADMIN, userRole.VENDOR, userRole.CUSTOMER]),
+  filterReviewByShops
+);
+reviewRouter.post(
+  "/",
+  requireAuth,
+  checkRole([userRole.CUSTOMER]),
+  addNewReview
+);
+reviewRouter.get("/", requireAuth, checkRole([userRole.ADMIN]), getAllReviews);
+reviewRouter.patch(
+  "/",
+  requireAuth,
+  checkRole([userRole.CUSTOMER]),
+  updateReviews
+);
+reviewRouter.delete(
+  "/",
+  requireAuth,
+  checkRole([userRole.VENDOR, userRole.CUSTOMER]),
+  deleteReview
+);
+reviewRouter.delete(
+  "/:id",
+  requireAuth,
+  checkRole([userRole.ADMIN]),
+  deleteReviewByAdmin
+);
+reviewRouter.get(
+  "/user", // Changed from "/user/:userId" to "/user"
+  requireAuth,
+  checkRole([userRole.CUSTOMER]),
+  getUserReviews
+);
+// osama saad
+reviewRouter.get("/summary/:entityId/:entityType",requireAuth,
+  checkRole([userRole.ADMIN, userRole.VENDOR, userRole.CUSTOMER]), getReviewSummaryRoute);
+
+// reviewRouter.delete('/:id', requireAuth, checkRole([userRole.ADMIN]),deletUserByUser)
+//REVIEW FOR CERTAIN PRODUCT OR CERTAIN STORE
+export default reviewRouter;
+// create delete review by user only and one by admin
+// filter review for products and shops
+
+// 15 Task (store and product)
 
 // --- CRUD Operations ---
 reviewRouter.post("/", requireAuth,checkRole([userRole.CUSTOMER]), addNewReview);
