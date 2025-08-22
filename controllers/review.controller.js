@@ -190,38 +190,77 @@ export const updateReviews = async (req, res, next) => {
 // ==========================
 // Delete review by user for specific entity
 // ==========================
+// export const deleteReview = async (req, res, next) => {
+//   try {
+//     if (!req.user) {
+//       return next(new ErrorResponse("Unauthorized user", StatusCodes.UNAUTHORIZED));
+//     }
+
+//     const { entityId, entityType } = req.body;
+
+//     const deletedReview = await Review.findOneAndDelete({
+//       user: req.user._id,
+//       entityId,
+//       entityType,
+//     });
+
+//     if (!deletedReview) {
+//       return next(new ErrorResponse("Review not found", StatusCodes.NOT_FOUND));
+//     }
+
+//     res.status(StatusCodes.OK).json({
+//       status: httpStatus.SUCCESS,
+//       data: { message: 'Review deleted successfully' },
+//     });
+
+//   } catch (error) {
+//     console.error("Delete Review Error:", error.message);
+//     next(new ErrorResponse(error.message, StatusCodes.INTERNAL_SERVER_ERROR));
+//   }
+// };
+
+//*! osama saad
+// ==========================
+// Delete review by user for specific entity  //osama
+// ==========================
 export const deleteReview = async (req, res, next) => {
   try {
-    if (!req.user) {
-      return next(new ErrorResponse("Unauthorized user", StatusCodes.UNAUTHORIZED));
+    const { entityId, entityType } = req.query;
+    const userId = req.user._id;
+    if (!entityId || !entityType) {
+      return next(
+        new ErrorResponse(
+          'entityId and entityType are required query parameters.',
+          StatusCodes.BAD_REQUEST
+        )
+      );
     }
-
-    const { entityId, entityType } = req.body;
-
     const deletedReview = await Review.findOneAndDelete({
-      user: req.user._id,
-      entityId,
-      entityType,
+      user: userId,
+      entityId: entityId,
+      entityType: entityType,
     });
-
     if (!deletedReview) {
-      return next(new ErrorResponse("Review not found", StatusCodes.NOT_FOUND));
+      return next(
+        new ErrorResponse(
+          'Review not found or you are not authorized to delete it.',
+          StatusCodes.NOT_FOUND
+        )
+      );
     }
-
     res.status(StatusCodes.OK).json({
-      status: httpStatus.SUCCESS,
-      data: { message: 'Review deleted successfully' },
+      status: 'success',
+      message: 'Review deleted successfully',
     });
-
   } catch (error) {
-    console.error("Delete Review Error:", error.message);
     next(new ErrorResponse(error.message, StatusCodes.INTERNAL_SERVER_ERROR));
   }
 };
 
 // ==========================
-// Delete review by admin
+// Delete review by admin  
 // ==========================
+
 export const deleteReviewByAdmin = async (req, res, next) => {
   try {
     if (!req.user || req.user.role !== 'ADMIN') {
@@ -377,3 +416,30 @@ export const getUserReviews = async (req, res, next) => {
     next(new ErrorResponse(error.message || "Server error", StatusCodes.INTERNAL_SERVER_ERROR));
   }
 };
+
+
+//*! osama
+// ==========================
+// Review by user   
+// ==========================
+export const getReviewsByUserId = async (req, res, next) => {
+  try {
+    const userId = req.params.userId;
+    const reviews = await Review.find({ user: userId }).populate('entityId'); // Populate entity details
+
+    if (!reviews || reviews.length === 0) {
+      return res.status(StatusCodes.NOT_FOUND).json({
+        status: httpStatus.FAIL,
+        data: { message: "No reviews found for this user" },
+      });
+    }
+
+    res.status(StatusCodes.OK).json({
+      status: httpStatus.SUCCESS,
+      data: { reviews },
+    });
+  } catch (error) {
+    next(new ErrorResponse(error.message, StatusCodes.INTERNAL_SERVER_ERROR));
+  }
+};
+

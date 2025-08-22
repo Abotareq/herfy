@@ -1,7 +1,7 @@
 export const parseVariantsMiddleware = (req, res, next) => {
   if (req.body.variants) {
     try {
-      console.log(req.files)
+      // console.log(req.files)
       console.log("hi")
       console.log(typeof req.body.variants )
       req.body.variants = JSON.parse(req.body.variants);

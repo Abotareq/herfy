@@ -2,7 +2,7 @@
 import productController from "../controllers/product.controller.js";
 import express from "express";
 import validate from "../middlewares/validate.middleware.js";
-import { requireAuth, checkRole } from "../auth/auth.middleware.js";
+import { requireAuth, checkRole, optionalAuth } from "../auth/auth.middleware.js";
 import { 
   createProductSchema, 
   createVariantSchema, 
@@ -44,7 +44,10 @@ const router = express.Router();
  * @desc Get all products with filters, pagination, search
  * @access Public
  */
-router.get("/", productController.getAllProducts);
+router.get("/", 
+  optionalAuth,
+  productController.getAllProducts);
+// router.get("/", optionalAuth, productController.getAllProducts);
 
 /**
  * @route GET /products/search
@@ -69,6 +72,26 @@ router.get("/:productId", productController.getProductById);
 // Global authentication & authorization for all routes below
 router.use(requireAuth);
 router.use(checkRole([userRole.VENDOR, userRole.ADMIN]));
+
+//*! Added by Osama Saad
+// ADDED: A new route specifically for admins to manage product status.
+// It should be placed within the private routes section.
+/**
+ * @route PATCH /:productId/status
+ * @desc Update product status
+ * @access Admin
+ */
+router.patch(
+  "/:productId/status",
+  requireAuth, // 1. User must be logged in.
+  checkRole(userRole.ADMIN), // 2. User must have the 'admin' role.
+  productController.updateProductStatus
+);
+
+
+// router.route('/stats').get(getProductStats);
+
+
 /**
  * @route /products
  * @desc Create product
@@ -76,6 +99,7 @@ router.use(checkRole([userRole.VENDOR, userRole.ADMIN]));
  */
 router.route("/")
   .post(
+    requireAuth,     // osama saad
     uploadCloudinary.array("images"),
     // upload.single("image"),
     parseVariantsMiddleware,

@@ -65,7 +65,8 @@
 
 import mongoose from 'mongoose';
 import slugify from 'slugify';
-
+import { addDocument } from "../rag/vectorStore.js";
+import Embedding from "./Embedding.js";
 const variantSchema = new mongoose.Schema({
   name: String,
   isDeleted: { type: Boolean, default: false },
@@ -87,6 +88,11 @@ const productSchema = new mongoose.Schema({
     type: String,
     required: true,
     trim: true,
+  },
+    status: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected', 'suspended'],
+    default: 'pending',
   },
   slug: String,
   description: {
@@ -137,6 +143,52 @@ productSchema.pre('save', function(next) {
     this.slug = slugify(this.name, { lower: true });
   }
   next();
+});
+
+// -------------------- Auto Incremental RAG Training Hooks -------------------- //
+// After create/update
+productSchema.post('save', async function(doc) {
+  try {
+    const content = `Product: ${doc.name}, Description: ${doc.description}, Base Price: ${doc.basePrice}, Discount Price: ${doc.discountPrice}, Store: ${doc.store}, Category: ${doc.category}`;
+    await addDocument(`${doc._id}`, content, {
+      type: 'product',
+      productId: doc._id,
+      storeId: doc.store,
+      categoryId: doc.category,
+      createdBy: doc.createdBy
+    });
+    console.log(`RAG embeddings updated for product ${doc._id}`);
+  } catch (err) {
+    console.error('RAG auto-train error for Product:', err.message);
+  }
+});
+
+// After findOneAndUpdate
+productSchema.post('findOneAndUpdate', async function(doc) {
+  if (!doc) return;
+  try {
+    const content = `Product: ${doc.name}, Description: ${doc.description}, Base Price: ${doc.basePrice}, Discount Price: ${doc.discountPrice}, Store: ${doc.store}, Category: ${doc.category}`;
+    await addDocument(`${doc._id}`, content, {
+      type: 'product',
+      productId: doc._id,
+      storeId: doc.store,
+      categoryId: doc.category,
+      createdBy: doc.createdBy
+    });
+    console.log(`RAG embeddings updated for product ${doc._id} (update)`);
+  } catch (err) {
+    console.error('RAG auto-train error for Product (update):', err.message);
+  }
+});
+
+// After remove: delete related embeddings
+productSchema.post('remove', async function(doc) {
+  try {
+    await Embedding.deleteMany({ docId: `${doc._id}`, docType: 'product' });
+    console.log(`Deleted RAG embeddings for removed product ${doc._id}`);
+  } catch (err) {
+    console.error('RAG auto-train error for Product (remove):', err.message);
+  }
 });
 
 const Product = mongoose.model('Product', productSchema);

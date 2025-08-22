@@ -36,8 +36,9 @@ const getUserOrders = asyncWrapper(async (req, res) => {
   // const userId = "649c1f1f1f1f1f1f1f1f1f1f";
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
+  const status = req.query.status || ""; // Filter by status ('completed', 'pending', etc.)
 
-  const orders = await orderService.getUserOrders(userId, page, limit);
+  const orders = await orderService.getUserOrders(userId, page, limit,status);
 
   res.status(StatusCodes.OK).json({
     status: JSEND_STATUS.SUCCESS,
@@ -137,8 +138,9 @@ const updateOrderStatus = asyncWrapper(async (req, res) => {
  */
 const cancelOrder = asyncWrapper(async (req, res) => {
   const { orderId } = req.params;
+  const  userId  = req.user._id;
 
-  const order = await orderService.cancelOrder(orderId);
+  const order = await orderService.cancelOrder(orderId,userId);
 
   res.status(StatusCodes.OK).json({
     status: JSEND_STATUS.SUCCESS,

@@ -12,8 +12,10 @@ import StatusCodes from "../utils/status.codes.js";
  * @param {Object} req.query - Filters and pagination options.
  * @returns {Object} Products list and metadata.
  */
+
+//*!  Edit by osama
 const getAllProducts = asyncWrapper(async (req, res) => {
-  const data = await productService.getAllProducts(req.query);
+  const data = await productService.getAllProducts(req.query,req.user);    //Added req.user by osama
   res.status(StatusCodes.OK).json(
     { status: JSEND_STATUS.SUCCESS, ...data });
 });
@@ -26,9 +28,33 @@ const getAllProducts = asyncWrapper(async (req, res) => {
  * @returns {Object} Product details.
  */
 const getProductById = asyncWrapper(async (req, res) => {
-  const product = await productService.getProductById(req.params.productId);
+  const product = await productService.getProductById(req.params.productId,req.user);
   res.status(StatusCodes.OK).json({ status: JSEND_STATUS.SUCCESS, data: product });
 });
+
+
+// /**
+//  * @desc    Get product statistics (counts by status)
+//  * @route   GET /api/product/stats
+//  * @access  Private/Admin
+//  */
+// const getProductStats = asyncHandler(async (req, res, next) => {
+//   const approved = await Product.countDocuments({ status: 'approved' });
+//   const pending = await Product.countDocuments({ status: 'pending' });
+//   const rejected = await Product.countDocuments({ status: 'rejected' });
+//   const total = await Product.countDocuments();
+
+//   res.status(200).json({
+//     success: true,
+//     data: {
+//       approved,
+//       pending,
+//       rejected,
+//       total
+//     }
+//   });
+// });
+
 
 /**
  * Create a new product.
@@ -44,11 +70,13 @@ const createProduct = asyncWrapper(async (req, res) => {
   req.body.basePrice = Number(req.body.basePrice);
 
   const userId = req.user._id;
-
+  const role =req.user.role;
+  console.log("from contoller");
   // Determine if single or multiple files uploaded
- 
-  console.log(req.files)
-  const createdProduct = await productService.createProduct(req.body, req.files, userId);
+  // console.log('req.files:', req.files);
+  // console.log('req.body:', req.body);
+
+  const createdProduct = await productService.createProduct(req.body, req.files, userId,role);
 
   res.status(201).json({
     status: 'success',
@@ -91,12 +119,32 @@ const updateProduct = asyncWrapper(async (req, res) => {
   //  Add validation before service call
 
   // for dev
-  const product = await productService.updateProduct(req.params.productId, req.body, req.files ,req.user._id);
+  const product = await productService.updateProduct(req.params.productId, req.body, req.files ,req.user);   //update to be user instead of user._id
   
   // for test
   // const product = await productService.updateProduct(req.params.productId, req.body, req.file ,userId);
   res.status(StatusCodes.OK).json({ status: JSEND_STATUS.SUCCESS, data: product });
 });
+
+
+//*!  ADDED: New controller function for the admin status update route.
+/**
+ * Updates a product's status.
+ * @route PATCH /api/product/:productId/status
+ * @access Private (Admin only)
+ * @param {string} req.params.productId - Product ID.
+ * @param {Object} req.body - { status: 'approved' | 'rejected' | 'suspended' }.
+ * @returns {Object} Updated product.
+ */
+const updateProductStatus = asyncWrapper(async (req, res) => {
+  const product = await productService.updateStatusByAdmin(
+    req.params.productId,
+    req.body.status
+  );
+  res.status(StatusCodes.OK).json({ status: JSEND_STATUS.SUCCESS, data: product });
+});
+
+
 
 /**
  * Delete a product by its ID.
@@ -189,5 +237,7 @@ export default{
     deleteVariant,
     updateVariant,
     addImages,
-    softDeleteProduct
+    softDeleteProduct,
+    updateProductStatus,
+    // getProductStats
 }
