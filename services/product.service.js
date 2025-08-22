@@ -6,6 +6,7 @@ import AppErrors from "../utils/app.errors.js";
 import slugify from "slugify";
 import { buildProductFilterQuery } from "../utils/filter_method.js";
 import { getSortOption } from "../utils/sort.method.js";
+import userRole from "../utils/user.role.js";
 
 /**
  * Retrieves all products with filters, sorting, and pagination.
@@ -47,7 +48,8 @@ const getAllProducts = async ({
   minPrice,
   maxPrice,
   sort,
-}) => {
+  status,
+}, user ) => {
   const query = buildProductFilterQuery({
     category,
     search,
@@ -57,8 +59,22 @@ const getAllProducts = async ({
     maxPrice,
   });
 
+  if (status) {
+    query.status = status;
+  }
+
   if (storeId) {
     query.store = storeId;
+  }
+    // 
+    console.log("--- DEBUGGING USER ROLE ---");
+    console.log("User object received:", user);
+    console.log("Value of user.role:", user ? user.role : "No user");
+    console.log("Value of userRole.CUSTOMER:", userRole ? userRole.CUSTOMER : "userRole not defined");
+    console.log("---------------------------");
+  
+  if(!user ||user.role=== userRole.CUSTOMER){
+    query.status = "approved"
   }
 
   const sortOption = getSortOption(sort);
@@ -100,11 +116,15 @@ const getAllProducts = async ({
  * @returns {Promise<object>} - The product document.
  * @throws {AppError} - Throws if not found.
  */
-const getProductById = async (productId) => {
-  const product = await Product.findOne({
+const getProductById = async (productId,user) => {
+  const query = {
     _id: productId,
     isDeleted: false,
-  }).populate("category", "name slug");
+  };
+    if(!user || userRole.CUSTOMER){
+    query.status = "approved"
+  }
+  const product = await Product.findOne(query).populate("category", "name slug");
 
   if (!product) throw AppErrors.notFound("Product not found");
 
@@ -187,7 +207,7 @@ const searchProducts = async ({
  * @returns {Promise<object>} - The created product.
  */
 
-const createProduct = async (data, files, userId) => {
+const createProduct = async (data, files, userId,role) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -224,7 +244,7 @@ const createProduct = async (data, files, userId) => {
     const store = await Store.findById(data.store).session(session);
     if (!store) throw AppErrors.notFound("Store not found");
 
-    if (store.owner.toString() !== userId.toString()) {
+    if (!store.owner || store.owner.toString() !== userId.toString() && role.toLowerCase() !== 'admin') {
       throw AppErrors.unauthorized(
         "You are not authorized to add products to this store"
       );
@@ -277,13 +297,27 @@ const createProduct = async (data, files, userId) => {
   }
 };
 
-const updateProduct = async (productId, updateData, file, userId) => {
+const updateProduct = async (productId, updateData, file, user) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
     const product = await Product.findById(productId).session(session);
     if (!product) throw AppErrors.notFound("Product not found");
+
+    // If the product is already 'approved' and the vendor tries to change critical data...
+    if (user.role === 'vendor' && product.status === 'approved') {
+      const criticalFieldsChanged = updateData.name || updateData.description || updateData.basePrice || updateData.category;
+      if (criticalFieldsChanged) {
+        // ...reset the status to 'pending' for admin re-approval.
+        product.status = 'pending';
+      }
+    }
+
+    if (user.role === 'vendor') {
+      delete updateData.status;
+    }
+
 
     //  Price validation
     if (updateData.basePrice < 0) {
@@ -333,7 +367,7 @@ const updateProduct = async (productId, updateData, file, userId) => {
       if (!newStore) throw AppErrors.notFound("New store not found");
 
       //  Optional: Check user owns the new store
-      if (newStore.owner.toString() !== userId.toString()) {
+      if (newStore.owner.toString() !== user._id.toString()) {
         throw AppErrors.unauthorized(
           "You are not authorized to move product to this store"
         );
@@ -429,6 +463,38 @@ const updateProduct = async (productId, updateData, file, userId) => {
   }
 };
 
+
+//*!  Added by Osama Saad
+
+//  New service function for admins to update status    
+
+
+/**
+ * Updates the status of a product. Only accessible by Admins.
+ * @param {string} productId - The ID of the product to update.
+ * @param {string} status - The new status ('approved', 'rejected', 'suspended').
+ * @returns {Promise<object>} The updated product document.
+ */
+const updateStatusByAdmin = async (productId, status) => {
+  // Basic validation
+  const allowedStatuses = ['approved', 'rejected', 'suspended'];
+  if (!allowedStatuses.includes(status)) {
+    throw AppErrors.badRequest("Invalid status provided.");
+  }
+  
+  const product = await Product.findByIdAndUpdate(
+    productId,
+    { status },
+    { new: true }
+  );
+
+  if (!product) {
+    throw AppErrors.notFound("Product not found.");
+  }
+
+  return product;
+};
+
 // SOFT DELETE PRODUCT
 const SoftDeleteProduct = async (productId, userId) => {
   const session = await mongoose.startSession();
@@ -502,6 +568,7 @@ const deleteProduct = async (id) => {
  * @returns {Promise<object>} - Updated product.
  * @throws {AppError} - Throws if product not found.
  */
+
 const addVariant = async (productId, variantData) => {
   const product = await Product.findById(productId);
   if (!product) throw AppErrors.notFound("Product not found");
@@ -678,4 +745,5 @@ export default {
   updateVariant,
   addImages,
   SoftDeleteProduct,
+  updateStatusByAdmin
 };

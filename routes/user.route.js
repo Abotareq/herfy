@@ -21,7 +21,7 @@ userRouter.get(
   searchByRoleByAdmin
 );
 userRouter.get("/", requireAuth, checkRole([userRole.ADMIN]), getAllUsers);
-userRouter.get("/:id", requireAuth, checkRole([userRole.ADMIN]), getUserById);
+userRouter.get("/:id", requireAuth, checkRole([userRole.ADMIN, userRole.CUSTOMER, userRole.VENDOR]), getUserById);
 userRouter.patch(
   "/",
   requireAuth,

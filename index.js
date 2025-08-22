@@ -52,12 +52,11 @@ const PORT = process.env.PORT || 3000;
 
 //*------------------------------------middlewares------------------------------------*//
 app.use(helmet());
-const allowedOrigins = ["http://localhost:3000", "http://localhost:4200"];
-
+      // Allow requests if origin is in the list or if request has no origin (like Postman)
+const allowedOrigins = ["http://localhost:4200", "http://localhost:3001", "http://localhost:3000"];
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests if origin is in the list or if request has no origin (like Postman)
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
@@ -67,7 +66,6 @@ app.use(
     credentials: true, // allows sending/receiving cookies
   })
 );
-
 app.use(express.json());
 app.use(cookieParser());
 app.use(morgan("dev"));
