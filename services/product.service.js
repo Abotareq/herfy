@@ -259,16 +259,17 @@ const createProduct = async (data, files, userId,role) => {
     // }
 
     //Check for existing product with same name in the same store
-    const existingProduct = await Product.findOne({
-      store: data.store,
-      slug: data.slug,
-    }).session(session);
+    // const existingProduct = await Product.findOne({
+    //   store: data.store,
+    //   slug: data.slug,
+    // }).session(session);
 
-    if (existingProduct) {
-      throw AppErrors.badRequest(
-        "Product with this name already exists in this store"
-      );
-    }
+    // if (existingProduct) {
+    //   throw AppErrors.badRequest(
+    //     "Product with this name already exists in this store"
+    //   );
+    // }
+    
     const product = await Product.create([data], { session });
 
     // Update store's products array
