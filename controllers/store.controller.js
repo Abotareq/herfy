@@ -14,7 +14,7 @@ import StatusCodes from "../utils/status.codes.js";
  */
 const createStore = asyncWrapper(async (req, res) => {
   const data = req.body;
-
+  console.log("Creating store with data:", data);
   // Attach the authenticated user as the store owner
 
   // for prod
@@ -27,6 +27,10 @@ const createStore = asyncWrapper(async (req, res) => {
   if (req.file) {
     // Store the logo URL or path in your data before saving
     data.logoUrl = req.file.path; // or req.file.location if using S3 or cloud storage
+    console.log("Creating store with data: after cloudinary", data);
+  }
+  else{
+    console.error("no cloudinary")
   }
 
   const store = await storeService.createStore(data);
@@ -38,6 +42,29 @@ const createStore = asyncWrapper(async (req, res) => {
 });
 
 /**
+ * @desc Get all stores belonging to the authenticated vendor
+ * @route GET /stores/vendor
+ * @access Private (Vendor/Admin)
+ */
+const getStoresByVendor = asyncWrapper(async (req, res) => {
+    console.log("Fetching stores for vendor");
+    const ownerId = req.user._id; // From requireAuth middleware
+    const { page, limit, search, status } = req.query;
+    console.log("Fetching stores for vendor:", ownerId, "Page:", page, "Limit:", limit, "Search:", search, "Status:", status);
+    const storesData = await storeService.getStoresByVen({
+      ownerId,
+      page: parseInt(page) || 1,
+      limit: parseInt(limit) || 10,
+      search,
+      status,
+    });
+
+    return res.status(StatusCodes.OK).json({
+      status: "success",
+      data: storesData,
+    });
+});
+/**
  * Get all stores with optional pagination and filters
  *
  * @async
@@ -47,22 +74,16 @@ const createStore = asyncWrapper(async (req, res) => {
  * @returns {Promise<void>}
  */
 const getAllStores = asyncWrapper(async (req, res) => {
-  const { page, limit, search, status } = req.query;
-
-  const result = await storeService.getAllStores({
-    page: parseInt(page),
-    limit: parseInt(limit),
-    search,
-    status,
-  });
-
+  console.log("hi from backend")
+  const result = await storeService.getAllStores(req.query);
+  console.log("results",result)
   res.status(StatusCodes.OK).json({
     status: JSEND_STATUS.SUCCESS,
     data: {stores : result.stores},
     pagination: {
       total: result.total,
-      currentPage: page,
-      limit,
+      currentPage: result.currentPage,
+      totalPages : result.totalPages
     },
   });
 });
@@ -116,7 +137,7 @@ const updateStore = asyncWrapper(async (req, res) => {
 
   res.status(StatusCodes.OK).json({
     status: JSEND_STATUS.SUCCESS,
-    data: {updatedStore},
+    data: updatedStore,
   });
 });
 
@@ -147,4 +168,5 @@ export default {
   getStoreById,
   updateStore,
   deleteStore,
+  getStoresByVendor
 };

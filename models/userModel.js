@@ -22,8 +22,9 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import userRole from "../utils/user.role.js";
+import { addDocument } from "../rag/vectorStore.js";
+import Embedding from "./Embedding.js";
 // A sub-document for addresses
-// تفاصيل العنوان كتيرة شوية
 const addressSchema = new mongoose.Schema({
   buildingNo: { type: Number, required: true }, // 4
   street: { type: String, required: true }, // Al Shohadaa
@@ -130,5 +131,39 @@ userSchema.pre("save", async function (next) {
   next();
 });
 
+// -------------------- Auto Incremental RAG Training Hooks -------------------- //
+
+// After creating or updating a user
+userSchema.post('save', async function(doc) {
+  try {
+    const content = `User: ${doc.userName}, Name: ${doc.firstName} ${doc.lastName}, Email: ${doc.email}, Phone: ${doc.phone}, Role: ${doc.role}, Addresses: ${JSON.stringify(doc.addresses)}, Wishlist: ${doc.wishlist.join(', ')}`;
+    await addDocument(`${doc._id}`, content, { type: 'user', userId: doc._id });
+    console.log(`RAG embeddings updated for user ${doc._id}`);
+  } catch (err) {
+    console.error('RAG auto-train error for User:', err.message);
+  }
+});
+
+// After findOneAndUpdate
+userSchema.post('findOneAndUpdate', async function(doc) {
+  if (!doc) return;
+  try {
+    const content = `User: ${doc.userName}, Name: ${doc.firstName} ${doc.lastName}, Email: ${doc.email}, Phone: ${doc.phone}, Role: ${doc.role}, Addresses: ${JSON.stringify(doc.addresses)}, Wishlist: ${doc.wishlist.join(', ')}`;
+    await addDocument(`${doc._id}`, content, { type: 'user', userId: doc._id });
+    console.log(`RAG embeddings updated for user ${doc._id} (update)`);
+  } catch (err) {
+    console.error(' RAG auto-train error for User (update):', err.message);
+  }
+});
+
+// After removing a user: delete related embeddings
+userSchema.post('remove', async function(doc) {
+  try {
+    await Embedding.deleteMany({ docId: `${doc._id}`, docType: 'user' });
+    console.log(`Deleted RAG embeddings for removed user ${doc._id}`);
+  } catch (err) {
+    console.error('RAG auto-train error for User (remove):', err.message);
+  }
+});
 const User = mongoose.model("User", userSchema);
 export default User;

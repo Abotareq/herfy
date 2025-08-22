@@ -119,16 +119,167 @@ const createStore = async (data) => {
  * @param {string} [options.status] - Status filter.
  * @returns {Promise<object>} - An object containing total count and list of stores.
  */
-const getAllStores = async ({ page = 1, limit = 10, search, status }) => {
-  const query = buildStoreFilterQuery({ search, status });
+// const getAllStores = async (params) => {
+//   let {
+//     page = 1,
+//     limit = 10,
+//     status,
+//     city,
+//     search,
+//     sort,
+//   } = params;
+//   page = Number(page);
+//   limit = Number(limit);
 
-  // Exclude soft deleted stores
-  query.isDeleted = { $ne: true };
+//   // Base query => exclude soft deleted
+//   const query = { isDeleted: { $ne: true } };
+
+//   // Filters
+//   if (status) query.status = status;
+//   if (city) query["address.city"] = city;
+
+//   // Search by name or description
+//   if (search) {
+//     query.$or = [
+//       { name: { $regex: search, $options: "i" } },
+//       { description: { $regex: search, $options: "i" } },
+//     ];
+//   }
+//   // Sorting
+//   let sortOption = { createdAt: -1 }; // default: newest
+//   switch (sort) {
+//     case "name":
+//       sortOption = { name: 1 };
+//       break;
+//     case "products":
+//       sortOption = { productCount: -1 };
+//       break;
+//     case "orders":
+//       sortOption = { ordersCount: -1 };
+//       break;
+//     case "oldest":
+//       sortOption = { createdAt: 1 };
+//       break;
+//     default:
+//       break;
+//   }
+
+//   // Run queries in parallel
+//   const countPromise = Store.countDocuments(query);
+//   const storesPromise = Store.find(query)
+//     .sort(sortOption)
+//     .skip((page - 1) * limit)
+//     .limit(limit);
+
+//   const [total, stores] = await Promise.all([countPromise, storesPromise]);
+//   console.log("total" , stores)
+//   return {
+//     success: true,
+//     total,
+//     currentPage: page,
+//     totalPages: Math.ceil(total / limit),
+//     stores,
+//   };
+// };
+export const getAllStores = async ({
+  page = 1,
+  limit = 10,
+  search,
+  status,
+  sort,
+  city,
+  brand, // ✅ brand name part
+  ...extraFilters
+} = {}) => {
+  // Ensure numeric values
+  page = parseInt(page, 10) || 1;
+  limit = parseInt(limit, 10) || 10;
+
+  // Build query
+  const query = {
+    isDeleted: { $ne: true },
+    ...(status ? { status } : {}),
+    ...(city ? { "address.city": city } : {}),
+    ...(brand ? { name: { $regex: brand, $options: "i" } } : {}), // ✅ check if store.name contains brand
+    ...extraFilters,
+  };
+
+  // Search (multi-field, including brand inside store name)
+  if (search) {
+    query.$or = [
+      { name: { $regex: search, $options: "i" } },   // ✅ brand included
+      { description: { $regex: search, $options: "i" } },
+      { "address.city": { $regex: search, $options: "i" } },
+      { "address.street": { $regex: search, $options: "i" } },
+    ];
+  }
+
+  // Sorting
+    let sortOption = { createdAt: -1 }; // default: newest
+    switch (sort) {
+      case "name":
+        sortOption = { name: 1 };
+        break;
+      case "products":
+        sortOption = { productCount: -1 };
+        break;
+      case "orders":
+        sortOption = { ordersCount: -1 };
+        break;
+      case "oldest":
+        sortOption = { createdAt: 1 };
+        break;
+      default:
+        break;
+    }
+
+  // Fetch data
+  const [total, stores] = await Promise.all([
+    Store.countDocuments(query),
+    Store.find(query)
+      .sort(sortOption)
+      .skip((page - 1) * limit)
+      .limit(limit),
+  ]);
+
+  return {
+    success: true,
+    total,
+    currentPage: page,
+    totalPages: Math.ceil(total / limit),
+    stores,
+  };
+};
+/**
+ * Get stores for a specific vendor/owner
+ * @param {Object} params
+ * @param {string} params.ownerId - Owner's (vendor's) ID
+ * @param {number} [params.page=1] - Page number
+ * @param {number} [params.limit=10] - Items per page
+ * @param {string} [params.search] - Optional search term (store name)
+ * @param {string} [params.status] - Optional status filter ('pending', 'approved', etc.)
+ */
+const getStoresByVen = async ({ ownerId, page = 1, limit = 10, search, status }) => {
+  const query = {
+    owner: ownerId,           // Only this owner's stores
+    isDeleted: false,         // Exclude soft-deleted stores
+  };
+
+  // Optional search by store name
+  if (search) {
+    query.name = { $regex: search, $options: "i" };
+  }
+
+  // Optional filter by store status
+  if (status) {
+    query.status = status;
+  }
 
   const countPromise = Store.countDocuments(query);
   const storesPromise = Store.find(query)
     .skip((page - 1) * limit)
-    .limit(limit);
+    .limit(limit)
+    .sort({ createdAt: -1 }); // newest first
 
   const [total, stores] = await Promise.all([countPromise, storesPromise]);
 
@@ -166,7 +317,7 @@ const getStoreById = async (id) => {
  * @returns {Promise<object>} - The updated store document.
  * @throws {AppError} - Throws if store is not found.
  */
-const updateStore = async (id, data) => {
+export const updateStore = async (id, data) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -174,62 +325,66 @@ const updateStore = async (id, data) => {
     // Find store by ID within transaction
     const store = await Store.findById(id).session(session);
     if (!store) {
-      throw AppErrors.notFound("Store not found");
+      throw AppErrors.notFound('Store not found');
     }
 
-    // If name is being updated, regenerate slug and check uniqueness
-    if (data.name) {
+    // If name is being updated, regenerate slug and check uniqueness per owner
+    if (data.name && data.name.trim() !== store.name) {
       const generatedSlug = slugify(data.name, { lower: true });
 
       const existingStore = await Store.findOne({
         owner: store.owner,
         slug: generatedSlug,
-        _id: { $ne: id }, // exclude current store
+        _id: { $ne: store._id }, // exclude current store
       }).session(session);
 
       if (existingStore) {
         throw AppErrors.badRequest(
-          "Another store with this name already exists for this owner."
+          'Another store with this name already exists for this owner.'
         );
       }
 
-      store.name = data.name;
+      store.name = data.name.trim();
       store.slug = generatedSlug;
     }
 
-    // Update other fields if provided
+    // Simple field updates if provided
+    if (data.status !== undefined) store.status = data.status;
     if (data.description !== undefined) store.description = data.description;
     if (data.logoUrl !== undefined) store.logoUrl = data.logoUrl;
 
+    // Location validation
     if (data.location) {
       if (
         !Array.isArray(data.location.coordinates) ||
         data.location.coordinates.length !== 2
       ) {
-        throw AppErrors.badRequest("Invalid location coordinates");
+        throw AppErrors.badRequest('Invalid location coordinates');
       }
       store.location = {
-        type: "Point",
+        type: 'Point',
         coordinates: data.location.coordinates,
       };
     }
 
+    // Policies
     if (data.policies) {
       store.policies = {
-        shipping: data.policies.shipping,
-        returns: data.policies.returns,
+        shipping: data.policies.shipping ?? store.policies.shipping,
+        returns: data.policies.returns ?? store.policies.returns,
       };
     }
 
-    // Update address if provided
+    // Address
     if (data.address) {
       store.address = {
-        city: data.address.city,
-        postalCode: data.address.postalCode,
-        street: data.address.street,
+        city: data.address.city ?? store.address.city,
+        postalCode: data.address.postalCode ?? store.address.postalCode,
+        street: data.address.street ?? store.address.street,
       };
     }
-    // Save updated store within transaction (triggers validation + hooks)
+
+    // Save updated store within transaction
     await store.save({ session });
 
     await session.commitTransaction();
@@ -242,7 +397,6 @@ const updateStore = async (id, data) => {
     throw AppErrors.badRequest(err.message);
   }
 };
-
 
 /**
  * Deletes a store by its ID.
@@ -319,4 +473,5 @@ export default {
   getStoreById,
   deleteStore,
   updateStore,
+  getStoresByVen
 };
