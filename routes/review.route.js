@@ -5,6 +5,7 @@ import {
   updateReviews,
   deleteReview,
   deleteReviewByAdmin,
+  getUserReviews,
 } from "../controllers/review.controller.js";
 import { checkRole, requireAuth } from "../auth/auth.middleware.js";
 import userRole from "../utils/user.role.js";
@@ -19,15 +20,15 @@ import { getReviewSummaryRoute } from "../controllers/review.controller.js"; // 
 
 const reviewRouter = express.Router();
 reviewRouter.get(
-  "/filter",
+  "/filter/products",
   requireAuth,
-  checkRole([userRole.ADMIN]),
+  checkRole([userRole.ADMIN, userRole.VENDOR, userRole.CUSTOMER]),
   filterReviewByProducts
 );
 reviewRouter.get(
-  "/filter",
+  "/filter/shops",
   requireAuth,
-  checkRole([userRole.ADMIN]),
+  checkRole([userRole.ADMIN, userRole.VENDOR, userRole.CUSTOMER]),
   filterReviewByShops
 );
 reviewRouter.post(
@@ -55,10 +56,15 @@ reviewRouter.delete(
   checkRole([userRole.ADMIN]),
   deleteReviewByAdmin
 );
-
+reviewRouter.get(
+  "/user", // Changed from "/user/:userId" to "/user"
+  requireAuth,
+  checkRole([userRole.CUSTOMER]),
+  getUserReviews
+);
 // osama saad
 reviewRouter.get("/summary/:entityId/:entityType",requireAuth,
-  checkRole([userRole.ADMIN]), getReviewSummaryRoute);
+  checkRole([userRole.ADMIN, userRole.VENDOR, userRole.CUSTOMER]), getReviewSummaryRoute);
 
 // reviewRouter.delete('/:id', requireAuth, checkRole([userRole.ADMIN]),deletUserByUser)
 //REVIEW FOR CERTAIN PRODUCT OR CERTAIN STORE

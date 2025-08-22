@@ -3,26 +3,61 @@ import Review from '../models/reviewModel.js';
 import StatusCodes from '../utils/status.codes.js';
 import httpStatus from '../utils/http.status.message.js'
 import userRole from '../utils/user.role.js';
+import ErrorResponse from '../utils/error-model.js';
 
 // add review 
 //handle entity id 
-export const addNewReview = async(req, res, next) => {
-    try {
-        const { user, entityId,entityType, rating, comment} = req.body;
-        const addReview =await Review.create({
-            user,
-            entityId,
-            entityType,
-            rating,
-            comment,
-        })
-        res.status(StatusCodes.OK).json({status: httpStatus.SUCCESS, data: {addReview}});
-        
-        // add 
-    } catch (error) {
-      next(next(new ErrorResponse(error, StatusCodes.UNAUTHORIZED)));
+
+export const addNewReview = async (req, res, next) => {
+  try {
+    // Get user ID from req.user (set by requireAuth middleware)
+    const userId = req.user?._id;
+    if (!userId) {
+      return next(new ErrorResponse("User not authenticated", StatusCodes.UNAUTHORIZED));
     }
-}
+
+    const { entityId, entityType, rating, comment } = req.body;
+
+    // Validate required fields
+    if (!entityId || !entityType || !rating) {
+      return next(
+        new ErrorResponse("entityId, entityType, and rating are required", StatusCodes.BAD_REQUEST)
+      );
+    }
+
+    // Validate rating (1-5)
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return next(new ErrorResponse("Rating must be an integer between 1 and 5", StatusCodes.BAD_REQUEST));
+    }
+
+    // Validate entityType
+    const validEntityTypes = ["Product", "store"];
+    if (!validEntityTypes.includes(entityType)) {
+      return next(
+        new ErrorResponse("entityType must be 'Product' or 'store'", StatusCodes.BAD_REQUEST)
+      );
+    }
+
+    // Create the review
+    const review = await Review.create({
+      user: userId,
+      entityId,
+      entityType,
+      rating,
+      comment: comment || "", // Allow empty comments
+    });
+
+    // Populate user details for response
+    const populatedReview = await Review.findById(review._id).populate("user");
+
+    res.status(StatusCodes.CREATED).json({
+      status: httpStatus.SUCCESS,
+      data: populatedReview,
+    });
+  } catch (error) {
+    next(new ErrorResponse(error.message || "Server error", StatusCodes.INTERNAL_SERVER_ERROR));
+  }
+};
 // get all reviews
 // export const getAllReviews = async(req, res, next) => {
 //     const query = req.query;
@@ -297,5 +332,48 @@ export const getReviewSummaryRoute = async (req, res, next) => {
   } catch (error) {
     console.error("Review Summary Error:", error.message);
     next(new ErrorResponse(error.message, StatusCodes.INTERNAL_SERVER_ERROR));
+  }
+};
+export const getUserReviews = async (req, res, next) => {
+  try {
+    // Get userId from req.user (set by authentication middleware)
+    const userId = req.user?._id || req.user?.id; // Handle both _id and id cases
+    if (!userId) {
+      return next(new ErrorResponse("User not authenticated", StatusCodes.UNAUTHORIZED));
+    }
+
+    const { page = 1, limit = 10, entityType, sortBy = "createdAt", order = "desc" } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const filter = { user: userId };
+    if (entityType && entityType !== "all") {
+      filter.entityType = entityType;
+    }
+
+    const sort = {};
+    sort[sortBy] = order === "desc" ? -1 : 1;
+
+    const reviews = await Review.find(filter)
+      .populate("user") // Populate user details (e.g., name)
+      .populate("entityId") // Populate entity details (e.g., product/store name, slug, images)
+      .sort(sort)
+      .limit(parseInt(limit))
+      .skip(skip);
+
+    const totalReviews = await Review.countDocuments(filter);
+
+    res.status(StatusCodes.OK).json({
+      status: httpStatus.SUCCESS,
+      data: {
+        reviews,
+        pagination: {
+          totalReviews,
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(totalReviews / parseInt(limit)),
+        },
+      },
+    });
+  } catch (error) {
+    next(new ErrorResponse(error.message || "Server error", StatusCodes.INTERNAL_SERVER_ERROR));
   }
 };
