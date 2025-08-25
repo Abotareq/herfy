@@ -27,11 +27,13 @@ router.get(
 
 router.get(
   "/google/callback",
-  passport.authenticate("google", {
-    session: false,
-    failureRedirect: "/signin",
-  }),
+  (req, res, next) => {
+    console.log("Callback request received:", req.query);
+    passport.authenticate("google", {
+      session: false,
+      failureRedirect: `${process.env.CLIENT_URL}/signin`,
+    })(req, res, next);
+  },
   googleCallback
 );
-
 export default router;

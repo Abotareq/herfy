@@ -92,7 +92,12 @@ export const verifyToken = (req, res, next) => {
     const token = req.cookies?.access_token;
 
     if (!token) {
-      return next(new ErrorResponse('Authentication token missing', StatusCodes.UNAUTHORIZED));
+      return next(
+        new ErrorResponse(
+          "Authentication token missing",
+          StatusCodes.UNAUTHORIZED
+        )
+      );
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -100,7 +105,9 @@ export const verifyToken = (req, res, next) => {
     req.user = decoded; // Attach decoded user info
     next();
   } catch (err) {
-    return next(new ErrorResponse('Invalid or expired token', StatusCodes.UNAUTHORIZED));
+    return next(
+      new ErrorResponse("Invalid or expired token", StatusCodes.UNAUTHORIZED)
+    );
   }
 };
 
@@ -116,11 +123,18 @@ export const signOut = async (req, res, next) => {
 };
 
 export const googleCallback = async (req, res, next) => {
+  console.log("googleCallback triggered, req.user:", req.user);
   try {
+    if (!req.user) {
+      console.error("No user provided by Passport");
+      return res.redirect(`${process.env.CLIENT_URL}/signin?error=no_user`);
+    }
+
     const user = req.user;
     const token = generateToken(user);
     const { password: _, ...safeUser } = user.toObject();
 
+    console.log("Setting cookie and redirecting for user:", safeUser);
     res
       .cookie("access_token", token, {
         httpOnly: true,
@@ -128,12 +142,13 @@ export const googleCallback = async (req, res, next) => {
         secure: process.env.NODE_ENV === "production",
         expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       })
-      .redirect(process.env.CLIENT_URL)
-      .status(StatusCodes.OK)
-      .json({ user: safeUser });
+      .redirect(`${process.env.CLIENT_URL}`);
   } catch (err) {
-    return next(
-      new ErrorResponse("Google login failed", StatusCodes.INTERNAL_SERVER)
+    console.error("Google callback error:", err.message);
+    res.redirect(
+      `${process.env.CLIENT_URL}/signin?error=${encodeURIComponent(
+        err.message
+      )}`
     );
   }
 };
