@@ -128,6 +128,7 @@ export const googleCallback = async (req, res, next) => {
         secure: process.env.NODE_ENV === "production",
         expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       })
+      .redirect(process.env.CLIENT_URL)
       .status(StatusCodes.OK)
       .json({ user: safeUser });
   } catch (err) {

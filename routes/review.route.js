@@ -62,10 +62,8 @@
 // reviewRouter.get("/summary/:entityId/:entityType",requireAuth,
 //   checkRole([userRole.ADMIN]), getReviewSummaryRoute);
 
-
 // // reviewRouter.get('/filter/reviews/user/:userId',filterReviewByUser);
 // reviewRouter.get('/user/:userId', getReviewsByUserId)
-
 
 // export default reviewRouter;
 
@@ -93,16 +91,10 @@ import {
 const reviewRouter = express.Router();
 reviewRouter.get(
   "/filter/products",
-  requireAuth,
-  checkRole([userRole.ADMIN, userRole.VENDOR, userRole.CUSTOMER]),
+
   filterReviewByProducts
 );
-reviewRouter.get(
-  "/filter/shops",
-  requireAuth,
-  checkRole([userRole.ADMIN, userRole.VENDOR, userRole.CUSTOMER]),
-  filterReviewByShops
-);
+reviewRouter.get("/filter/shops", filterReviewByShops);
 reviewRouter.post(
   "/",
   requireAuth,
@@ -135,8 +127,12 @@ reviewRouter.get(
   getUserReviews
 );
 // osama saad
-reviewRouter.get("/summary/:entityId/:entityType",requireAuth,
-  checkRole([userRole.ADMIN, userRole.VENDOR, userRole.CUSTOMER]), getReviewSummaryRoute);
+reviewRouter.get(
+  "/summary/:entityId/:entityType",
+  requireAuth,
+  checkRole([userRole.ADMIN, userRole.VENDOR, userRole.CUSTOMER]),
+  getReviewSummaryRoute
+);
 
 // reviewRouter.delete('/:id', requireAuth, checkRole([userRole.ADMIN]),deletUserByUser)
 //REVIEW FOR CERTAIN PRODUCT OR CERTAIN STORE
@@ -147,11 +143,31 @@ reviewRouter.get("/summary/:entityId/:entityType",requireAuth,
 // 15 Task (store and product)
 
 // --- CRUD Operations ---
-reviewRouter.post("/", requireAuth,checkRole([userRole.CUSTOMER]), addNewReview);
+reviewRouter.post(
+  "/",
+  requireAuth,
+  checkRole([userRole.CUSTOMER]),
+  addNewReview
+);
 reviewRouter.get("/", requireAuth, checkRole([userRole.ADMIN]), getAllReviews);
-reviewRouter.patch("/", requireAuth, checkRole([userRole.CUSTOMER]), updateReviews);
-reviewRouter.delete("/", requireAuth, checkRole([userRole.VENDOR, userRole.CUSTOMER]), deleteReview);
-reviewRouter.delete("/:id", requireAuth, checkRole([userRole.ADMIN]), deleteReviewByAdmin);
+reviewRouter.patch(
+  "/",
+  requireAuth,
+  checkRole([userRole.CUSTOMER]),
+  updateReviews
+);
+reviewRouter.delete(
+  "/",
+  requireAuth,
+  checkRole([userRole.VENDOR, userRole.CUSTOMER]),
+  deleteReview
+);
+reviewRouter.delete(
+  "/:id",
+  requireAuth,
+  checkRole([userRole.ADMIN]),
+  deleteReviewByAdmin
+);
 
 // --- Specific Queries & Filters ---
 
@@ -160,11 +176,10 @@ reviewRouter.get("/filter/products", filterReviewByProducts);
 reviewRouter.get("/filter/shops", filterReviewByShops);
 
 // Route for fetching reviews for a specific user
-reviewRouter.get('/user/:userId', getReviewsByUserId);
+reviewRouter.get("/user/:userId", getReviewsByUserId);
 
 // Route for review summary
 reviewRouter.get("/summary/:entityId/:entityType", getReviewSummaryRoute);
-
 
 reviewRouter.get("/filter", filterReviews);
 
