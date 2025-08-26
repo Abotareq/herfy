@@ -16,7 +16,6 @@ export const getAllCategoty = async (req, res, next) => {
       res
         .status(StatusCodes.UNAUTHORIZED)
         .json({ status: httpStatus.ERROR, data: { message: "Unothoriaed" } });
-
     }
     res
       .status(StatusCodes.OK)
@@ -28,11 +27,12 @@ export const getAllCategoty = async (req, res, next) => {
 // add category
 export const addNewCategory = async (req, res, next) => {
   try {
-    const { name, image } = req.body;
-    const newCategory = await Category.create({
-      name,
-      image,
-    });
+    const data = req.body;
+    if (req.file) {
+      console.log(req.file);
+      data.image = req.file.path;
+    }
+    const newCategory = await Category.create(data);
     res
       .status(StatusCodes.OK)
       .json({ status: httpStatus.SUCCESS, data: { newCategory } });
@@ -46,12 +46,10 @@ export const getCategotyById = async (req, res, next) => {
     const catId = req.params.id;
     const category = await Category.findById(catId);
     if (!category) {
-      res
-        .status(StatusCodes.NOT_FOUND)
-        .json({
-          status: httpStatus.ERROR,
-          data: { message: "Not match Category" },
-        });
+      res.status(StatusCodes.NOT_FOUND).json({
+        status: httpStatus.ERROR,
+        data: { message: "Not match Category" },
+      });
     }
     res
       .status(StatusCodes.OK)
@@ -87,12 +85,17 @@ export const UpdateCategory = async (req, res, next) => {
     const categoryId = req.params.id;
     const updateData = req.body;
 
+    // If a file is uploaded, update the image path
+    if (req.file) {
+      updateData.image = req.file.path;
+    }
+
     const updatedCategory = await Category.findByIdAndUpdate(
       categoryId,
       updateData,
       {
-        new: true, // returns updated document
-        runValidators: true, // validates before updating
+        new: true, // return updated doc
+        runValidators: true, // validate update
       }
     );
 
