@@ -99,8 +99,8 @@ export const filterReviewByShops = async (req, res, next) => {
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    const filter = { entityType: "store", entityId: shopId };
-
+    const filter = { entityType: "Store", entityId: shopId };
+    
     const review = await Review.find(filter)
       .populate("user")
       .limit(parseInt(limit))
