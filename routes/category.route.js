@@ -11,6 +11,7 @@ import userRole from "../utils/user.role.js";
 import { searchCategoryByName } from "../controllers/search.controller.js";
 import { filterCategoryByName } from "../controllers/filter.controller.js";
 import upload from "../middlewares/uploade.middleware.js";
+import { uploadCloudinary } from "../middlewares/cloudinary.middleware.js";
 
 // categoryRouter.get('/filter', requireAuth, filterCategoryByName)
 // categoryRouter.get('/search',requireAuth, searchCategoryByName);
@@ -25,7 +26,7 @@ import upload from "../middlewares/uploade.middleware.js";
 export default categoryRouter;
 categoryRouter.get('/filter', filterCategoryByName)
 categoryRouter.get('/search', searchCategoryByName);
-categoryRouter.post('/', upload.single("image"),addNewCategory)
+categoryRouter.post('/', uploadCloudinary.single("image"),addNewCategory)
 categoryRouter.get('/',getAllCategoty)
 categoryRouter.get('/:id', getCategotyById)
 categoryRouter.delete('/:id', deleteCategory)
