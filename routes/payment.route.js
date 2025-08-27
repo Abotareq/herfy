@@ -4,9 +4,13 @@ import validate from "../middlewares/validate.middleware.js";
 import { requireAuth, checkRole } from "../auth/auth.middleware.js";
 import { createPaymentSchema, updatePaymentStatusSchema } from "../validations/payment.validation.js";
 import userRole from "../utils/user.role.js";
+import paymentService from "../services/payment.service.js";
+import bodyParser from "body-parser";
 
 const router = express.Router();
 
+
+// router.post("/webhook",  bodyParser.raw({ type: "application/json" }), paymentService.handleStripeWebhook);
 /**
  * ================================
  *  Require authentication for all routes
@@ -106,6 +110,12 @@ router.get(
   "/:id",
   checkRole([userRole.ADMIN]),
   paymentController.getPaymentById
+);
+
+router.get(
+  "/session/:id",
+  checkRole([userRole.CUSTOMER, userRole.ADMIN, userRole.VENDOR]),
+  paymentController.getPaymentBySessionId
 );
 
 export default router;
