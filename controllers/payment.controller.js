@@ -14,6 +14,7 @@ const createPayment = asyncWrapper(async (req, res) => {
   // for test
   // const userID = "649c1f1f1f1f1f1f1f1f1f1f";
   const paymentData = { ...req.body, user: userID };
+  console.log(paymentData)
   const payment = await paymentService.createPayment(paymentData);
   res
     .status(StatusCodes.CREATED)
@@ -30,6 +31,18 @@ const getPaymentById = asyncWrapper(async (req, res) => {
     .status(StatusCodes.OK)
     .json({ 
       status: JSEND_STATUS.SUCCESS, 
+      data: {
+        payment: result,
+      },
+    });
+});
+
+const getPaymentBySessionId = asyncWrapper(async (req, res) => {
+  const result = await paymentService.getPaymentBySessionId(req.params.id);
+  res
+    .status(StatusCodes.OK)
+    .json({
+      status: JSEND_STATUS.SUCCESS,
       data: {
         payment: result,
       },
@@ -108,4 +121,5 @@ export default {
   getAllPayments,
   getPaymentsByUser,
   getPaymentsBySeller,
+  getPaymentBySessionId
 };

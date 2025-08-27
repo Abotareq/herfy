@@ -121,9 +121,8 @@ export const filterReviewByShops = async (req, res, next) => {
     const parsedPage = parseInt(page);
     const parsedLimit = parseInt(limit);
     const skip = (parsedPage - 1) * parsedLimit;
-
-    const filter = { entityType: "store", entityId: shopId };
-
+    
+    const filter = { entityType: "Store", entityId: shopId };
     const [review, totalReviews] = await Promise.all([
       Review.find(filter).populate("user").limit(parsedLimit).skip(skip),
       Review.countDocuments(filter),

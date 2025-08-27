@@ -85,7 +85,6 @@ router.get(
  * @access Private (User)
  */
 router.use(checkRole([userRole.VENDOR, userRole.ADMIN,userRole.CUSTOMER]));
-
 router.post(
   "/",
   validate(createOrderSchema),

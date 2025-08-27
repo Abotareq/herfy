@@ -21,10 +21,6 @@ const storeParserMiddleware = (req, res, next) => {
         console.error("Invalid JSON for address:", err.message);
       }
     }
-
-    if (req.body.address && typeof req.body.address === 'string') {
-      req.body.address = JSON.parse(req.body.address);
-    }
     next();
   } catch (error) {
     console.error('Error parsing store nested JSON fields:', error);

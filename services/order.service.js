@@ -16,126 +16,112 @@ const createOrder = async (orderData, userId) => {
   session.startTransaction();
 
   try {
-    // =======================
-    // STEP 1: Merge duplicate products in orderItems by summing quantities
-    // =======================
-    const mergedOrderItems = [];
+    // 1. Find user
+    const user = await User.findById(userId).session(session);
+    if (!user) throw AppErrors.notFound("User not found");
 
-    for (const item of orderData.orderItems) {
-      const existingItem = mergedOrderItems.find(
-        (i) => i.product.toString() === item.product.toString()
-      );
-
-      if (existingItem) {
-        existingItem.quantity += item.quantity;
-      } else {
-        mergedOrderItems.push({ ...item });
+    // 2. Shipping address
+    let shippingAddress = {};
+    if (orderData.useExisting) {
+      if (!user.addresses || user.addresses.length === 0) {
+        throw AppErrors.badRequest("User has no saved addresses");
       }
+      shippingAddress = { ...user.addresses[0]._doc };
+    } else {
+      shippingAddress = orderData.shippingAddress;
     }
 
-    // =======================
-    // STEP 2: Fetch products in parallel using Promise.all
-    // =======================
-    const productIds = mergedOrderItems.map((item) => item.product);
+    // 3. Get user cart
+    const cart = await Cart.findOne({ user: userId })
+      .populate("items.product")
+      .session(session);
 
-    const products = await Product.find({ _id: { $in: productIds } }).session(
-      session
-    );
+    if (!cart || cart.items.length === 0) {
+      throw AppErrors.badRequest("Cart is empty");
+    }
 
-    // Convert products array to object map for faster lookup
-    const productMap = {};
-    products.forEach((product) => {
-      productMap[product._id.toString()] = product;
-    });
+    const orderItems = [];
 
-    // =======================
-    // STEP 3: Update products & enrich orderItems (still parallel with Promise.all)
-    // =======================
-    await Promise.all(
-      mergedOrderItems.map(async (item) => {
-        const product = productMap[item.product.toString()];
+    // 4. Loop cart items
+    for (const item of cart.items) {
+      if (!item.product) throw AppErrors.notFound("Product not found");
 
-        if (!product)
-          throw AppErrors.notFound(`Product not found: ${item.product}`);
+      const product = item.product;
+      // Decrease stock for each chosen variant/option
+      if (item.variant?.length > 0) {
+        for (const chosenVariant of item.variant) {
+          const variant = product.variants.find(v => v.name === chosenVariant.name);
+          if (!variant) throw AppErrors.badRequest(`Variant ${chosenVariant.name} not found`);
 
-        if (product.stock < item.quantity)
-          throw AppErrors.badRequest(
-            `Insufficient stock for product: ${product.name}`
-          );
+          const option = variant.options.find(o => o.value === chosenVariant.value);
+          if (!option) throw AppErrors.badRequest(`Option ${chosenVariant.value} not found`);
 
-        // Decrease stock
-        product.stock -= item.quantity;
-        await product.save({ session });
+          if (option.stock < item.quantity) {
+            throw AppErrors.badRequest(`Not enough stock for ${chosenVariant.name}: ${chosenVariant.value}`);
+          }
 
-        // Add snapshot data to order item
-        item.name = product.name;
-        item.price = product.basePrice;
-        item.image = product.images[0] || "";
-        item.store = product.store;
-      })
-    );
+          option.stock -= item.quantity; // 🔽 decrease stock temporarily
+        }
+      }
 
-    // =======================
-    // STEP 4: Calculate subtotal, totalAmount in backend
-    // =======================
-    const subtotal = mergedOrderItems.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0
-    );
+      await product.save({ session });
 
-    // Calculate tax based on subtotal or fixed rules (example: 10%)
-    const tax = subtotal * 0.1; // or your own tax logic
+      orderItems.push({
+        product: product._id,
+        store: product.store,
+        name: product.name,
+        quantity: item.quantity,
+        price: item.price,
+        variant: item.variant, // snapshot of chosen variants
+        image: product.images?.[0] || "",
+      });
+    }
 
-    // Calculate shipping fee based on business logic
-    const shippingFee = subtotal >= 500 ? 0 : 20; // example: free shipping if subtotal >= 500
+    // 5. Calculate totals
+    const subtotal = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const discount = cart.discount || 0;
+    const totalAmount =
+      subtotal -
+      discount +
+      (orderData.shippingFee || 50) +
+      (orderData.tax || subtotal * 0.2);
 
-    const totalAmount = subtotal + tax + shippingFee;
-
-    // =======================
-    // STEP 5: Create order with enriched order items
-    // =======================
-    const storeIds = [
-      ...new Set(mergedOrderItems.map((item) => item.store.toString())),
-    ];
-
-    const newOrder = await Order.create(
+    // 6. Create order
+    const [order] = await Order.create(
       [
         {
-          ...orderData,
-          user: userId,
-          orderItems: mergedOrderItems,
+          user: user._id,
+          orderItems,
+          shippingAddress,
+          coupon: cart.coupon || null,
           subtotal,
-          tax,
-          shippingFee,
+          shippingFee: orderData.shippingFee || 50,
+          tax: orderData.tax || subtotal * 0.2,
           totalAmount,
+          status: "pending", // wait for payment confirmation
         },
       ],
       { session }
     );
 
-    // =======================
-    // STEP 6: Update stores' ordersCount in parallel
-    // =======================
-    await Store.updateMany(
-      { _id: { $in: storeIds } },
-      { $inc: { ordersCount: 1 } },
-      { session }
-    );
+    // 7. Clear cart
+    cart.items = [];
+    cart.total = 0;
+    cart.discount = 0;
+    cart.totalAfterDiscount = 0;
+    cart.coupon = null;
+    await cart.save({ session });
 
-    // =======================
-    // STEP 7: Commit & return
-    // =======================
     await session.commitTransaction();
     session.endSession();
 
-    return newOrder[0];
-  } catch (err) {
+    return order;
+  } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    throw AppErrors.badRequest(err.message);
+    throw error;
   }
 };
-
 // const getUserOrders = async (userId, page = 1, limit = 10) => {
 //   const skip = (page - 1) * limit;
 

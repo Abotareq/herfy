@@ -1,4 +1,3 @@
-
 import mongoose from "mongoose";
 import Payment from "../models/paymentModel.js";
 import Order from "../models/orderModel.js";
@@ -11,158 +10,624 @@ import { buildPaymentFilter } from "../utils/filter_method.js";
 import { getPaymentSortOption } from "../utils/sort.method.js";
 import JSEND_STATUS from "../utils/http.status.message.js";
 import StatusCodes from "../utils/status.codes.js";
+import sendReminderEmail from "../utils/email.notifications.js";
+// dotenv.config();
+// const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+// /**
+//  * Create a Stripe Checkout Session
+//  * @param {Object} order
+//  * @returns {Object} Stripe Session
+//  */
+// export const createStripeCheckoutSession = async (order) => {
+//   return await stripe.checkout.sessions.create({
+//     payment_method_types: ["card"],
+//     line_items: order.orderItems.map((item) => ({
+//       price_data: {
+//         currency: "usd",
+//         product_data: { name:"mina maher" },
+//         unit_amount: 300,
+//       },
+//       quantity: 2,
+//     })),
+//     mode: "payment",
+//     success_url: `${process.env.CLIENT_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+//     cancel_url: `${process.env.CLIENT_URL}/payment-cancel`,
+//   });
+// };
+
+
+// /**
+//  * Create a payment and initiate Stripe Checkout Session
+//  */
+// const createPayment = async (paymentData) => {
+//   const session = await mongoose.startSession();
+//   session.startTransaction();
+
+//   try {
+//     const existingPayment = await Payment.findOne({
+//       order: paymentData.order,
+//     }).session(session);
+//     if (existingPayment) {
+//       throw appErrors.badRequest("Payment already exists for this order");
+//     }
+
+//     const order = await Order.findById(paymentData.order).session(session);
+//     if (!order) {
+//       throw appErrors.notFound("Order not found");
+//     }
+
+//     // Check if user is allowed to pay for this order
+//     if (order.user.toString() !== paymentData.user.toString()) {
+//       throw appErrors.forbidden("You are not allowed to pay for this order");
+//     }
+//     // Call separated Stripe utility
+//     //for dev
+//     console.log("order inside payment : ", order);
+//     const stripeSession = await createStripeCheckoutSession(order);
+//     console.log("strip session : ", stripeSession);
+//     const payment = await Payment.create(
+//       [
+//         {
+//           order: order._id,
+//           user: paymentData.user,
+//           amount: order.totalAmount,
+//           paymentMethod: paymentData.paymentMethod || "credit_card",
+//           provider: paymentData.provider || "Stripe",
+//           status: paymentData.status || "pending",
+//           //for dev
+//           stripeSessionId: stripeSession.id,
+//         },
+//       ],
+//       { session }
+//     );
+
+//     await session.commitTransaction();
+//     session.endSession();
+
+//     return { payment: payment[0], sessionUrl: stripeSession.url };
+//   } catch (error) {
+//     await session.abortTransaction();
+//     session.endSession();
+//     throw appErrors.internal(error.message);
+//   }
+// };
+// /**
+//  * Stripe Webhook handler (to be placed in routes/webhook.js)
+//  * Not part of service but used to confirm payments
+//  */
+// // const handleStripeWebhook = async (event) => {
+// //   if (event.type !== "checkout.session.completed") return;
+
+// //   const session = event.data.object;
+
+// //   // Start transaction
+// //   const dbSession = await mongoose.startSession();
+// //   dbSession.startTransaction();
+
+// //   try {
+// //     // Find payment by stripeSessionId
+// //     const payment = await Payment.findOne({
+// //       stripeSessionId: session.id,
+// //     }).session(dbSession);
+// //     if (!payment) {
+// //       throw appErrors.notFound("Payment not found for session");
+// //     }
+
+// //     if (payment.status !== "completed") {
+// //       // Update payment status
+// //       payment.status = "completed";
+// //       await payment.save({ session: dbSession });
+
+// //       // Update order status
+// //       const order = await Order.findById(payment.order).session(dbSession);
+// //       if (!order) {
+// //         throw appErrors.notFound("Order not found for payment");
+// //       }
+// //       order.status = "paid";
+// //       order.paidAt = new Date();
+// //       await order.save({ session: dbSession });
+
+// //       // Reduce stock for each order item
+// //       for (const item of order.orderItems) {
+// //         const product = await Product.findById(item.product).session(dbSession);
+// //         if (product) {
+// //           product.countInStock -= item.quantity;
+// //           if (product.countInStock < 0) {
+// //             throw appErrors.badRequest(
+// //               `Insufficient stock for product ${product.name}`
+// //             );
+// //           }
+// //           await product.save({ session: dbSession });
+// //         }
+// //       }
+
+// //       // Update store revenue
+// //       const store = await Store.findById(order.store).session(dbSession);
+// //       if (store) {
+// //         store.totalRevenue += payment.amount;
+// //         await store.save({ session: dbSession });
+// //       }
+
+// //       // Cart deletion, Review creation, Loyalty points, Notifications
+// //     }
+
+// //     // Commit transaction
+// //     await dbSession.commitTransaction();
+// //     dbSession.endSession();
+// //   } catch (error) {
+// //     await dbSession.abortTransaction();
+// //     dbSession.endSession();
+// //     console.error("Webhook handling failed:", error);
+// //     throw appErrors.internal(error.message);
+// //   }
+// // };
+// export const handleStripeWebhook = async (req, res) => {
+//   const sig = req.headers["stripe-signature"];
+//   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+//   if (!webhookSecret) {
+//     console.error("Stripe webhook secret not set in environment variables.");
+//     return res.status(500).send("Webhook configuration error.");
+//   }
+
+//   let event;
+//   try {
+//     // Use req.body as raw Buffer (bodyParser.raw) to verify Stripe signature
+//     event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+//     console.log("Webhook event received:", event.type);
+//   } catch (err) {
+//     console.error("Webhook signature verification failed:", err.message);
+//     return res.status(400).send(`Webhook Error: ${err.message}`);
+//   }
+
+//   // Only handle checkout.session.completed events
+//   if (event.type !== "checkout.session.completed") {
+//     return res.status(200).send("Event ignored");
+//   }
+
+//   const session = event.data.object;
+//   console.log(session.id)
+//   // Start a MongoDB transaction
+//   const dbSession = await mongoose.startSession();
+//   dbSession.startTransaction();
+
+//   try {
+
+//     const payment = await Payment.findOne({ stripeSessionId: session.id }).session(dbSession);
+//     if (!payment) throw new Error("Payment not found for this session");
+
+//     if (payment.status !== "completed") {
+//       // Mark payment as completed
+//       payment.status = "completed";
+//       await payment.save({ session: dbSession });
+
+//       // Update order
+//       const order = await Order.findById(payment.order).session(dbSession);
+//       if (!order) throw new Error("Order not found for this payment");
+
+//       order.status = "paid";
+//       order.paidAt = new Date();
+//       await order.save({ session: dbSession });
+
+//       // Update stock for each item
+//       for (const item of order.orderItems) {
+//         const product = await Product.findById(item.product).session(dbSession);
+//         if (product) {
+//           if (product.countInStock < item.quantity) {
+//             throw new Error(`Insufficient stock for product ${product.name}`);
+//           }
+//           product.countInStock -= item.quantity;
+//           await product.save({ session: dbSession });
+//         }
+//       }
+
+//       // Update store revenue
+//       const store = await Store.findById(order.store).session(dbSession);
+//       if (store) {
+//         store.totalRevenue += payment.amount;
+//         await store.save({ session: dbSession });
+//       }
+//     }
+
+//     await dbSession.commitTransaction();
+//     dbSession.endSession();
+//     console.log("Webhook processed successfully for session:", session.id);
+//     return res.status(200).json({ received: true });
+//   } catch (error) {
+//     await dbSession.abortTransaction();
+//     dbSession.endSession();
+//     console.error("Webhook handling failed:", error);
+//     return res.status(500).send("Internal Server Error");
+//   }
+// };
 dotenv.config();
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
 /**
  * Create a Stripe Checkout Session
- * @param {Object} order
+ * @param {Object} order - The order object containing order items and details
  * @returns {Object} Stripe Session
  */
 export const createStripeCheckoutSession = async (order) => {
-  return await stripe.checkout.sessions.create({
-    payment_method_types: ["card"],
-    line_items: order.orderItems.map((item) => ({
-      price_data: {
-        currency: "usd",
-        product_data: {
-          name: item.name,
+  try {
+    // Validate required order items
+    if (!order.orderItems || order.orderItems.length === 0) {
+      throw new Error('Order must contain at least one item');
+    }
+
+    // Create line_items from actual order items
+    const lineItems = order.orderItems.map((item) => {
+      // Validate required item data
+      if (!item.product || !item.price || !item.quantity) {
+        throw new Error('Invalid order item data');
+      }
+
+      return {
+        price_data: {
+          currency: "usd",
+          product_data: {
+            name: item.product.name || item.name || "Product",
+            description: item.product.description || item.description,
+            images: item.product.images ? [item.product.images[0]] : undefined,
+          },
+          unit_amount: Math.round(item.price * 100), // Convert to cents
         },
-        unit_amount: item.price * 100, // convert to cents
+        quantity: item.quantity,
+      };
+    });
+
+    const sessionConfig = {
+      payment_method_types: ["card"],
+      line_items: lineItems,
+      mode: "payment",
+      success_url: `${process.env.CLIENT_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.CLIENT_URL}/payment-cancel`,
+      // Add useful metadata
+      metadata: {
+        order_id: order._id.toString(),
+        user_id: order.user.toString(),
       },
-      quantity: item.quantity,
-    })),
-    mode: "payment",
-    success_url: `${process.env.CLIENT_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${process.env.CLIENT_URL}/payment-cancel`,
-  });
+      // Add customer information if available
+      customer_email: "menamosadef5@gmail.com",
+      // Add shipping options if required
+      shipping_address_collection: {
+        allowed_countries: ['US', 'CA', 'GB'], // Specify allowed countries
+      },
+    };
+
+    return await stripe.checkout.sessions.create(sessionConfig);
+  } catch (error) {
+    console.error('Error creating Stripe checkout session:', error);
+    throw new Error(`Failed to create checkout session: ${error.message}`);
+  }
 };
 
 /**
  * Create a payment and initiate Stripe Checkout Session
+ * @param {Object} paymentData - Payment data including order ID and user ID
+ * @returns {Object} Payment object and session URL
  */
-const createPayment = async (paymentData) => {
+export const createPayment = async (paymentData) => {
+  // Validate input data
+  if (!paymentData.order || !paymentData.user) {
+    throw appErrors.badRequest("Order ID and User ID are required");
+  }
+
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
+    // Check for existing payment for this order
     const existingPayment = await Payment.findOne({
       order: paymentData.order,
     }).session(session);
+    
     if (existingPayment) {
       throw appErrors.badRequest("Payment already exists for this order");
     }
 
-    const order = await Order.findById(paymentData.order).session(session);
+    // Find the order
+    const order = await Order.findById(paymentData.order)
+      .populate('orderItems.product') // Load product data
+      .session(session);
+    
     if (!order) {
       throw appErrors.notFound("Order not found");
     }
 
-    // Check if user is allowed to pay for this order
-    if (order.user.toString() !== paymentData.user) {
+    // Check if user is authorized to pay for this order
+    if (order.user.toString() !== paymentData.user.toString()) {
       throw appErrors.forbidden("You are not allowed to pay for this order");
     }
-    // Call separated Stripe utility
-    //for dev
-    // const stripeSession = await createStripeCheckoutSession(order);
 
+    // Check order status
+    if (order.status === 'cancelled') {
+      throw appErrors.badRequest("Cannot pay for a cancelled order");
+    }
+
+    if (order.status === 'paid') {
+      throw appErrors.badRequest("Order is already paid");
+    }
+
+    console.log("Order details:", {
+      id: order._id,
+      totalAmount: order.totalAmount,
+      itemsCount: order.orderItems.length
+    });
+
+    // Create Stripe session
+    const stripeSession = await createStripeCheckoutSession(order);
+    
+    console.log("Stripe session created:", {
+      id: stripeSession.id,
+      url: stripeSession.url
+    });
+
+    // Create payment record
     const payment = await Payment.create(
-      [
-        {
-          order: order._id,
-          user: paymentData.user,
-          amount: order.totalAmount,
-          paymentMethod: paymentData.paymentMethod || "credit_card",
-          provider: paymentData.provider || "Stripe",
-          status: paymentData.status || "pending",
-          //for dev
-          // stripeSessionId: stripeSession.id,
-          // for test
-          stripeSessionId: "test_session_id_12345",
-        },
-      ],
+      [{
+        order: order._id,
+        user: paymentData.user,
+        amount: order.totalAmount,
+        paymentMethod: paymentData.paymentMethod || "credit_card",
+        provider: paymentData.provider || "Stripe",
+        status: paymentData.status || "pending",
+        stripeSessionId: stripeSession.id,
+        // Add additional information
+        currency: "USD",
+        createdAt: new Date(),
+      }],
+      { session }
+    );
+
+    // Update order status
+    await Order.findByIdAndUpdate(
+      order._id,
+      { 
+        status: 'processing_payment',
+        updatedAt: new Date()
+      },
       { session }
     );
 
     await session.commitTransaction();
-    session.endSession();
+    
+    return { 
+      payment: payment[0], 
+      sessionUrl: stripeSession.url,
+      sessionId: stripeSession.id
+    };
 
-    // return { payment: payment[0], sessionUrl: stripeSession.url };
-    // for test
-    return { payment: payment[0] };
   } catch (error) {
     await session.abortTransaction();
+    console.error('Payment creation error:', error);
+    
+    // Return appropriate error message
+    if (error.name === 'AppError') {
+      throw error;
+    } else {
+      throw appErrors.internal(`Payment processing failed: ${error.message}`);
+    }
+  } finally {
     session.endSession();
-    throw appErrors.internal(error.message);
   }
 };
+
+
+const reverseStock = async (orderId) => {
+  const order = await Order.findById(orderId).populate("orderItems.product");
+  if (!order) throw AppErrors.notFound("Order not found");
+
+  for (const item of order.orderItems) {
+    const product = item.product;
+
+    if (item.variant?.length > 0) {
+      for (const chosenVariant of item.variant) {
+        const variant = product.variants.find(v => v.name === chosenVariant.name);
+        if (!variant) continue;
+
+        const option = variant.options.find(o => o.value === chosenVariant.value);
+        if (option) option.stock += item.quantity; //  restore stock
+      }
+    }
+
+    await product.save();
+  }
+
+  order.status = "cancelled";
+  await order.save();
+};
+
 /**
- * Stripe Webhook handler (to be placed in routes/webhook.js)
- * Not part of service but used to confirm payments
+ * Handle Stripe webhook events
+ * @param {Object} event - Stripe webhook event
  */
-const handleStripeWebhook = async (event) => {
-  if (event.type !== "checkout.session.completed") return;
+export const handleStripeWebhook = async (event) => {
+  try {
+    switch (event.type) {
+      //  Checkout completed (most common)
+      case "checkout.session.completed":
+        await handlePaymentSuccess(event.data.object);
+        break;
 
-  const session = event.data.object;
+      //  PaymentIntent succeeded (backup event, sometimes not tied to checkout)
+      case "payment_intent.succeeded":
+        await handlePaymentIntentSucceeded(event.data.object);
+        break;
 
-  // Start transaction
-  const dbSession = await mongoose.startSession();
-  dbSession.startTransaction();
+      //  Payment failed
+      case "payment_intent.payment_failed":
+        await handlePaymentFailed(event.data.object);
+        break;
+
+      //  Checkout session expired (user didn’t finish payment)
+      case "checkout.session.expired":
+        await handlePaymentExpired(event.data.object);
+        break;
+
+      // ↩ Refund issued
+      case "charge.refunded":
+        await handleRefund(event.data.object);
+        break;
+
+      default:
+        console.log(` Unhandled event type: ${event.type}`);
+    }
+  } catch (error) {
+    console.error(" Webhook handling error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Handle successful payment
+ */
+const handlePaymentSuccess = async (session) => {
+  const paymentSession = await mongoose.startSession();
+  paymentSession.startTransaction();
 
   try {
-    // Find payment by stripeSessionId
-    const payment = await Payment.findOne({
-      stripeSessionId: session.id,
-    }).session(dbSession);
-    if (!payment) {
-      throw appErrors.notFound("Payment not found for session");
+    // Update Payment record & return the populated document
+    const payment = await Payment.findOneAndUpdate(
+      { stripeSessionId: session.id },
+      {
+        status: "completed",
+        paidAt: new Date(),
+        stripePaymentIntentId: session.payment_intent,
+      },
+      { new: true, session: paymentSession }
+    ).populate("user", "email"); // populate only email
+
+    // Update linked Order
+    if (payment?.order) {
+      await Order.findByIdAndUpdate(
+        payment.order,
+        {
+          status: "paid",
+          paidAt: new Date(),
+          updatedAt: new Date(),
+        },
+        { session: paymentSession }
+      );
     }
 
-    if (payment.status !== "completed") {
-      // Update payment status
-      payment.status = "completed";
-      await payment.save({ session: dbSession });
-
-      // Update order status
-      const order = await Order.findById(payment.order).session(dbSession);
-      if (!order) {
-        throw appErrors.notFound("Order not found for payment");
-      }
-      order.status = "paid";
-      order.paidAt = new Date();
-      await order.save({ session: dbSession });
-
-      // Reduce stock for each order item
-      for (const item of order.orderItems) {
-        const product = await Product.findById(item.product).session(dbSession);
-        if (product) {
-          product.countInStock -= item.quantity;
-          if (product.countInStock < 0) {
-            throw appErrors.badRequest(
-              `Insufficient stock for product ${product.name}`
-            );
-          }
-          await product.save({ session: dbSession });
-        }
-      }
-
-      // Update store revenue
-      const store = await Store.findById(order.store).session(dbSession);
-      if (store) {
-        store.totalRevenue += payment.amount;
-        await store.save({ session: dbSession });
-      }
-
-      // Cart deletion, Review creation, Loyalty points, Notifications
+    // Send reminder email if user email exists
+    if (payment?.user?.email) {
+      await sendReminderEmail(payment, payment.user.email);
     }
 
-    // Commit transaction
-    await dbSession.commitTransaction();
-    dbSession.endSession();
+    await paymentSession.commitTransaction();
+    console.log(`Payment completed for session: ${session.id}`);
   } catch (error) {
-    await dbSession.abortTransaction();
-    dbSession.endSession();
-    console.error("Webhook handling failed:", error);
-    throw appErrors.internal(error.message);
+    await paymentSession.abortTransaction();
+    console.error("Error handling payment success:", error);
+    throw error;
+  } finally {
+    paymentSession.endSession();
+  }
+};
+
+/**
+ * Handle PaymentIntent success (backup for checkout)
+ */
+const handlePaymentIntentSucceeded = async (intent) => {
+  try {
+    const payment = await Payment.findOneAndUpdate(
+      { stripePaymentIntentId: intent.id },
+      { status: "completed", paidAt: new Date() },
+      { new: true }
+    );
+
+    if (payment?.order) {
+      await Order.findByIdAndUpdate(payment.order, {
+        status: "paid",
+        paidAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }
+
+    console.log(` PaymentIntent succeeded: ${intent.id}`);
+  } catch (error) {
+    console.error(" Error handling PaymentIntent success:", error);
+  }
+};
+
+/**
+ * Handle failed payment
+ */
+const handlePaymentFailed = async (intent) => {
+  try {
+    const payment = await Payment.findOneAndUpdate(
+      { stripePaymentIntentId: intent.id },
+      { status: "failed", updatedAt: new Date() },
+      { new: true }
+    );
+
+    if (payment?.order) {
+      // Restore stock because payment failed
+      await reverseStock(payment.order);
+
+      await Order.findByIdAndUpdate(payment.order, {
+        status: "failed",
+        updatedAt: new Date(),
+      });
+    }
+
+    console.log(` Payment failed: ${intent.id}`);
+  } catch (error) {
+    console.error(" Error handling payment failure:", error);
+  }
+};
+
+/**
+ * Handle expired checkout session
+ */
+const handlePaymentExpired = async (session) => {
+  try {
+    const payment = await Payment.findOneAndUpdate(
+      { stripeSessionId: session.id },
+      { status: "expired", updatedAt: new Date() },
+      { new: true }
+    );
+
+    if (payment?.order) {
+      // Restore stock
+      await reverseStock(payment.order);
+
+      await Order.findByIdAndUpdate(payment.order, {
+        status: "cancelled",
+        updatedAt: new Date(),
+      });
+    }
+
+    console.log(` Payment session expired: ${session.id}`);
+  } catch (error) {
+    console.error(" Error handling payment expiration:", error);
+  }
+};
+
+/**
+ * Handle refund
+ */
+const handleRefund = async (charge) => {
+  try {
+    const payment = await Payment.findOneAndUpdate(
+      { stripePaymentIntentId: charge.payment_intent },
+      { status: "refunded", updatedAt: new Date() },
+      { new: true }
+    );
+
+    if (payment?.order) {
+      await Order.findByIdAndUpdate(payment.order, {
+        status: "refunded",
+        updatedAt: new Date(),
+      });
+    }
+
+    console.log(` Refund processed for charge: ${charge.id}`);
+  } catch (error) {
+    console.error(" Error handling refund:", error);
   }
 };
 
@@ -185,6 +650,18 @@ const getPaymentById = async (paymentId) => {
   return payment;
 };
 
+const getPaymentBySessionId = async (sessionId) => {
+  // Find payment by ID
+  console.log(sessionId)
+  const payment = await Payment.find({ stripeSessionId: sessionId })
+    .populate("order")
+    .populate("user")
+    .lean();
+  if (!payment) {
+    throw appErrors.notFound("Payment not found");
+  }
+  return payment;
+};
 /**
  * Update payment status (includes Stripe refund)
  */
@@ -198,8 +675,7 @@ const updatePaymentStatus = async (paymentId, data) => {
       throw appErrors.badRequest("Invalid payment ID");
     }
     // 2. Find payment by ID
-    const payment = await Payment.findById(paymentId)
-      .session(session);
+    const payment = await Payment.findById(paymentId).session(session);
     if (!payment) {
       throw appErrors.notFound("Payment not found");
     }
@@ -268,7 +744,7 @@ const getAllPayments = async (query) => {
   const skip = (page - 1) * limit;
 
   const paymentsPromise = Payment.find(filter)
-    .populate("user" , "userName email")
+    .populate("user", "userName email")
     .populate("order")
     .sort(sort)
     .skip(skip)
@@ -307,7 +783,9 @@ const getPaymentsBySeller = async (sellerId, query) => {
   // Fetch orders related to those stores
   const orders = await Order.find({
     "orderItems.store": { $in: storeIds },
-  }).select("_id").lean();
+  })
+    .select("_id")
+    .lean();
   if (orders.length === 0) return { payments: [], total: 0 };
 
   const orderIds = orders.map((o) => o._id);
@@ -340,12 +818,11 @@ const getPaymentsBySeller = async (sellerId, query) => {
   };
 };
 
-
 /**
  * Get payments by user ID with pagination, filtering, and sorting
  */
 const getPaymentsByUser = async (userId, query) => {
-  const { page = 1, limit = 20, sort = "newest"} = query;
+  const { page = 1, limit = 20, sort = "newest" } = query;
   const skip = (page - 1) * limit;
 
   // Build filter
@@ -375,7 +852,6 @@ const getPaymentsByUser = async (userId, query) => {
   };
 };
 
-
 export default {
   createPayment,
   getPaymentById,
@@ -384,4 +860,5 @@ export default {
   getPaymentsByUser,
   getPaymentsBySeller,
   handleStripeWebhook, // Exported for webhook controller
+  getPaymentBySessionId,
 };
