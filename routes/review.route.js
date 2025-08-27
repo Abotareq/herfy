@@ -25,9 +25,9 @@ reviewRouter.get(
   filterReviewByProducts
 );
 reviewRouter.get(
-  "/filter",
+  "/filter/shops",
   requireAuth,
-  checkRole([userRole.ADMIN]),
+  checkRole([userRole.ADMIN, userRole.VENDOR]),
   filterReviewByShops
 );
 reviewRouter.post(
