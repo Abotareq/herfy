@@ -83,7 +83,7 @@ router.get(
  * @desc Create new order
  * @access Private (User)
  */
-router.use(checkRole([userRole.VENDOR, userRole.ADMIN]));
+router.use(checkRole([userRole.CUSTOMER ,userRole.VENDOR, userRole.ADMIN]));
 router.post(
   "/",
   validate(createOrderSchema),
