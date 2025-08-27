@@ -73,52 +73,18 @@ export const updateOrderStatusSchema = Joi.object({
  * const { error, value } = createOrderSchema.validate(data);
  */
 export const createOrderSchema = Joi.object({
-  user: Joi.string()
-    .custom((value, helpers) => {
-      if (!isValidObjectId(value)) {
-        return helpers.error("any.invalid");
-      }
-      return value;
-    }, "ObjectId Validation")
-    .optional(),
+  useExisting: Joi.boolean().required(),
 
-  orderItems: Joi.array()
-    .items(
+  // shippingAddress can be an object with address fields, or a string "Profile Address"
+  shippingAddress: Joi.alternatives()
+    .try(
+      Joi.string().valid("Profile Address"),
       Joi.object({
-        product: Joi.string()
-          .custom((value, helpers) => {
-            if (!isValidObjectId(value)) {
-              return helpers.error("any.invalid");
-            }
-            return value;
-          }, "ObjectId Validation")
-          .required(),
-        quantity: Joi.number().min(1).required(),
+        street: Joi.string().required(),
+        city: Joi.string().required(),
+        postalCode: Joi.string().required(),
+        country: Joi.string().required(),
       })
     )
-    .min(1)
     .required(),
-
-  shippingAddress: Joi.object({
-    street: Joi.string().required(),
-    city: Joi.string().required(),
-    postalCode: Joi.string().required(),
-    country: Joi.string().required(),
-  }).required(),
-
-  payment: Joi.string()
-    .custom((value, helpers) => {
-      if (!isValidObjectId(value)) {
-        return helpers.error("any.invalid");
-      }
-      return value;
-    }, "ObjectId Validation")
-    .required(),
-  status: Joi.string()
-    .valid("pending", "paid", "processing", "shipped", "delivered", "cancelled")
-    .default("pending"),
-
-  paidAt: Joi.date().allow(null),
-  shippedAt: Joi.date().allow(null),
-  deliveredAt: Joi.date().allow(null),
 });
