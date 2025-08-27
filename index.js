@@ -131,9 +131,7 @@ app.use("/api/payments", paymentRoute);
 app.use("/api/cart", cartRoute);
 app.use("/api/coupon", couponRouter);
 app.use("/api/review", reviewRouter);
-app.use(
-  "/api/uploads",
-  express.static(path.join(__dirname, "uploads/Category"))
+app.use(  "/api/uploads",  express.static(path.join(__dirname, "uploads/Category"))
 );
 // means that uploads/Category is a static folder
 app.use("/api/product", productRoute);

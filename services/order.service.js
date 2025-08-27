@@ -1,4 +1,3 @@
-
 import mongoose from "mongoose";
 import StatusCodes from "../utils/status.codes.js";
 import JSEND_STATUS from "../utils/http.status.message.js";
@@ -6,7 +5,7 @@ import Order from "../models/orderModel.js";
 import Product from "../models/productModel.js";
 import AppErrors from "../utils/app.errors.js";
 import Store from "../models/storeModel.js";
-import Coupon  from "../models/cuponModel.js";
+import Coupon from "../models/cuponModel.js";
 import Cart from "../models/cartModel.js";
 import Payment from "../models/paymentModel.js";
 import { httpMessages } from "../constant/constant.js";
@@ -48,7 +47,6 @@ const createOrder = async (orderData, userId) => {
       if (!item.product) throw AppErrors.notFound("Product not found");
 
       const product = item.product;
-
       // Decrease stock for each chosen variant/option
       if (item.variant?.length > 0) {
         for (const chosenVariant of item.variant) {
@@ -124,18 +122,40 @@ const createOrder = async (orderData, userId) => {
     throw error;
   }
 };
+// const getUserOrders = async (userId, page = 1, limit = 10) => {
+//   const skip = (page - 1) * limit;
 
+//   const [orders, total] = await Promise.all([
+//     Order.find({ user: userId })
+//       .populate("orderItems.product")
+//       .skip(skip)
+//       .limit(limit),
+//     Order.countDocuments({ user: userId }),
+//   ]);
 
+//   return {
+//     status: JSEND_STATUS.SUCCESS,
+//     statusCode: StatusCodes.OK,
+//     message: httpMessages.ORDERS_FETCHED,
+//     data: { orders, page, pages: Math.ceil(total / limit), total },
+//   };
+// };
 
-const getUserOrders = async (userId, page = 1, limit = 10) => {
+const getUserOrders = async (userId, page = 1, limit = 10, status = "") => {
   const skip = (page - 1) * limit;
 
+  const query = { user: userId };
+  if (status) {
+    query.status = status;
+  }
+
   const [orders, total] = await Promise.all([
-    Order.find({ user: userId })
+    Order.find(query)
       .populate("orderItems.product")
+      .sort({ createdAt: -1 }) // Sort by newest first
       .skip(skip)
       .limit(limit),
-    Order.countDocuments({ user: userId }),
+    Order.countDocuments(query),
   ]);
 
   return {
@@ -268,7 +288,7 @@ const updateOrderStatus = async (orderId, status) => {
   }
 };
 
-const cancelOrder = async (orderId) => {
+const cancelOrder = async (orderId, userId) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -279,16 +299,21 @@ const cancelOrder = async (orderId) => {
         httpMessages.ORDER_NOT_FOUND,
         StatusCodes.NOT_FOUND
       );
-
+    // Security Check: Verify ownership before allowing cancellation.
+    if (order.user.toString() !== userId.toString()) {
+      throw AppErrors.forbidden(httpMessages.UNAUTHORIZED);
+    }
     if (order.status === "cancelled")
       throw AppErrors.badRequest(
         httpMessages.ORDER_ALREADY_CANCELLED,
         StatusCodes.BAD_REQUEST
       );
 
-    if (["delivered", "shipped"].includes(order.status))
+    const nonCancellableStatuses = ["processing", "shipped", "delivered"];
+
+    if (nonCancellableStatuses.includes(order.status))
       throw AppErrors.badRequest(
-        "Cannot cancel an order that is already shipped or delivered.",
+        `Cannot cancel an order that is already ${order.status}. Please contact support for assistance.`,
         StatusCodes.BAD_REQUEST
       );
 
@@ -306,7 +331,7 @@ const cancelOrder = async (orderId) => {
     ];
     await Store.updateMany(
       { _id: { $in: storeIds } },
-      {$inc :{ ordersCount: -1 }}, // decrement active order count
+      { $inc: { ordersCount: -1 } }, // decrement active order count
       { session }
     );
 
@@ -316,7 +341,7 @@ const cancelOrder = async (orderId) => {
         { _id: order.user },
         {
           $inc: { cancelledOrders: 1 },
-          $inc:{activeOrders: -1},
+          $inc: { activeOrders: -1 },
         },
         { session }
       );
@@ -364,7 +389,7 @@ const deleteOrder = async (orderId) => {
         StatusCodes.BAD_REQUEST
       );
     }
-    
+
     // ========================
     // STEP 2: Validate deletion eligibility
     // ========================
@@ -447,8 +472,6 @@ const deleteOrder = async (orderId) => {
   }
 };
 
-
-  
 const getMyOrderById = async (orderId, userId) => {
   const order = await Order.findById(orderId).populate("orderItems.product");
 
@@ -458,7 +481,8 @@ const getMyOrderById = async (orderId, userId) => {
       StatusCodes.NOT_FOUND
     );
 
-  if (order.user.toString() !== userId)
+  console.log("userId:", userId.toString(), "\n", "order.user:", order.user);
+  if (order.user.toString() !== userId.toString())
     throw AppErrors.forbidden(httpMessages.UNAUTHORIZED, StatusCodes.FORBIDDEN);
 
   return {
@@ -501,10 +525,7 @@ const updateOrderItem = async (orderId, itemId, fields, file) => {
 
     const item = order.orderItems.id(itemId);
     if (!item) {
-      throw AppErrors.notFound(
-        "Order item not found",
-        StatusCodes.NOT_FOUND
-      );
+      throw AppErrors.notFound("Order item not found", StatusCodes.NOT_FOUND);
     }
 
     // ==========================
@@ -549,9 +570,7 @@ const updateOrderItem = async (orderId, itemId, fields, file) => {
     // ==========================
     // Perform stock save and order save in parallel for performance
     // ==========================
-    await Promise.all([
-      product.save({ session }),
-    ]);
+    await Promise.all([product.save({ session })]);
 
     // ==========================
     // Recalculate subtotal, tax, shippingFee, totalAmount based on your snippet logic
@@ -561,7 +580,7 @@ const updateOrderItem = async (orderId, itemId, fields, file) => {
       0
     );
 
-    const tax = subtotal * 0.10; // 10% tax
+    const tax = subtotal * 0.1; // 10% tax
     const shippingFee = subtotal >= 500 ? 0 : 20;
     const totalAmount = subtotal + tax + shippingFee;
 
@@ -593,5 +612,5 @@ export default {
   updateOrderStatus,
   cancelOrder,
   deleteOrder,
-  updateOrderItem
+  updateOrderItem,
 };

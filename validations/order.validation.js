@@ -7,6 +7,19 @@
 import Joi from "joi";
 import { isValidObjectId } from "./custome.validation.js";
 
+
+// osama
+
+export const validateOrderIdParam = Joi.object({
+  orderId: Joi.string().required().custom((value, helpers) => {
+    if (!isValidObjectId(value)) {
+      return helpers.error("any.invalid");
+    }
+    return value;
+  }),
+});
+
+
 /**
  * Validation schema for updating the status of an order.
  *
@@ -21,14 +34,14 @@ import { isValidObjectId } from "./custome.validation.js";
  * const { error, value } = updateOrderStatusSchema.validate(data);
  */
 export const updateOrderStatusSchema = Joi.object({
-  orderId: Joi.string()
-    .required()
-    .custom((value, helpers) => {
-      if (!isValidObjectId(value)) {
-        return helpers.error("any.invalid");
-      }
-      return value;
-    }, "ObjectId Validation"),
+  // orderId: Joi.string()
+  //   .required()
+  //   .custom((value, helpers) => {
+  //     if (!isValidObjectId(value)) {
+  //       return helpers.error("any.invalid");
+  //     }
+  //     return value;
+  //   }, "ObjectId Validation"),
   status: Joi.string()
     .valid("pending", "paid", "processing", "shipped", "delivered", "cancelled")
     .required(),

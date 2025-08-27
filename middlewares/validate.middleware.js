@@ -30,3 +30,20 @@ const validate = (schema) => {
 };
 
 export default validate;
+
+
+
+//*! osama 
+export const validateParams = (schema) => {
+    return (req, res, next) => {
+      const { error } = schema.validate(req.params, { abortEarly: false });
+      if (error) {
+        return res.status(400).json({
+          status: "fail",
+          message: "Validation Error",
+          data: error.details.map((err) => err.message),
+        });
+      }
+      next();
+    };
+  };

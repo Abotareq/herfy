@@ -1,9 +1,9 @@
 import express from "express";
 import orderController from "../controllers/order.controller.js";
 import { requireAuth, checkRole } from "../auth/auth.middleware.js";
-import validate from "../middlewares/validate.middleware.js";
+import validate, { validateParams } from "../middlewares/validate.middleware.js";
 import upload from "../middlewares/uploade.middleware.js";
-import { createOrderSchema, updateOrderStatusSchema } from "../validations/order.validation.js";
+import { createOrderSchema, updateOrderStatusSchema, validateOrderIdParam } from "../validations/order.validation.js";
 import userRole from "../utils/user.role.js";
 import { uploadCloudinary } from "../middlewares/cloudinary.middleware.js";
 
@@ -52,6 +52,7 @@ router.patch(
   "/admin/orders/:orderId/status",
   checkRole(userRole.ADMIN),
   validate(updateOrderStatusSchema),
+  validateParams(validateOrderIdParam),
   orderController.updateOrderStatus
 );
 
@@ -83,7 +84,7 @@ router.get(
  * @desc Create new order
  * @access Private (User)
  */
-router.use(checkRole([userRole.CUSTOMER ,userRole.VENDOR, userRole.ADMIN]));
+router.use(checkRole([userRole.VENDOR, userRole.ADMIN,userRole.CUSTOMER]));
 router.post(
   "/",
   validate(createOrderSchema),
