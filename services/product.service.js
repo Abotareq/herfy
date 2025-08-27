@@ -64,7 +64,9 @@ const getAllProducts = async ({
   }
 
   if (storeId) {
+    console.log("store id ",storeId)
     query.store = storeId;
+    console.log(query.store)
   }
     // 
     console.log("--- DEBUGGING USER ROLE ---");
@@ -83,7 +85,7 @@ const getAllProducts = async ({
     isDeleted: false,
     ...query,
   });
-
+  console.log("query",query)
   const productsPromise = Product.find({ isDeleted: false, ...query })
     .populate("category", "name slug")
     .populate("store", "name slug")
@@ -96,7 +98,7 @@ const getAllProducts = async ({
     countPromise,
     productsPromise,
   ]);
-
+    console.log("products",products)
   const totalPages = Math.ceil(totalProducts / limit);
 
   // Filter out soft-deleted variants before returning
@@ -105,7 +107,6 @@ const getAllProducts = async ({
       product.variants = product.variants.filter((v) => !v.isDeleted);
     }
   });
-
   return { products, totalProducts, totalPages, currentPage: page, limit };
 };
 
