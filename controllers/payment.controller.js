@@ -1,5 +1,6 @@
 
 import asyncWrapper from "../middlewares/async.wrapper.js";
+import Payment from "../models/paymentModel.js";
 import paymentService from "../services/payment.service.js";
 import JSEND_STATUS from "../utils/http.status.message.js";
 import StatusCodes from "../utils/status.codes.js";
@@ -63,6 +64,23 @@ const updatePaymentStatus = asyncWrapper(async (req, res) => {
     .json({ status: JSEND_STATUS.SUCCESS, data: payment });
 });
 
+const updatePaymentStatusByOrderId = asyncWrapper(async (req, res) => {
+
+  const payment = await Payment.findOne({ order: req.params.id });
+
+  console.log(req.params.id,req.body.status,payment);
+  if(!payment){
+    return res.status(StatusCodes.NOT_FOUND).json({ status: JSEND_STATUS.FAIL, message: "Payment not found" });
+  }
+  const updatedPayment = await paymentService.updatePaymentStatus(
+    payment._id,
+    req.body.status
+  );
+  res
+    .status(StatusCodes.OK)
+    .json({ status: JSEND_STATUS.SUCCESS, data: updatedPayment });
+});
+
 /**
  * @desc Get all payments (Admin)
  * @route GET /payments
@@ -93,7 +111,7 @@ const getPaymentsBySeller = asyncWrapper(async (req, res) => {
 
   const sellerId = req.user.id ;
   // const sellerID = "64e5a9f831f60c5edc2e0bf2";
-  const payments = await paymentService.getPaymentsBySeller(sellerID,req.query);
+  const payments = await paymentService.getPaymentsBySeller(sellerId,req.query);
   res
     .status(StatusCodes.OK)
     .json({ status: JSEND_STATUS.SUCCESS, data: payments });
@@ -121,5 +139,6 @@ export default {
   getAllPayments,
   getPaymentsByUser,
   getPaymentsBySeller,
-  getPaymentBySessionId
+  getPaymentBySessionId,
+  updatePaymentStatusByOrderId
 };

@@ -5,13 +5,13 @@ const handler = async (req, res) => {
   try {
     const query = req.body.messages?.[0]?.content;
     if (!query) return res.status(400).json({ error: "Missing query." });
-
+    console.log("RAG query:", query);
     const queryEmbedding = (await getEmbedding(query))[0];
     const topDocs = await retrieveTopK(queryEmbedding, 100);
 
     const context = topDocs.map((d, i) => `Document ${i + 1}: ${d.content}`).join("\n\n");
     const prompt = `You are a helpful assistant.\nContext:\n${context}\nQuestion: ${query}\nAnswer:`;
-
+    console.log("hi from rag")
     const axios = await import("axios").then((m) => m.default);
     const response = await axios.post(
       "https://api.openai.com/v1/chat/completions",

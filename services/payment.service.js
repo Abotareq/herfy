@@ -357,12 +357,18 @@ export const createPayment = async (paymentData) => {
     });
 
     // Create Stripe session
-    const stripeSession = await createStripeCheckoutSession(order);
-    
-    console.log("Stripe session created:", {
+    let stripeSession = 0 ;
+    if(paymentData.paymentMethod == "credit_card")
+    {
+      stripeSession = await createStripeCheckoutSession(order);
+      console.log("Stripe session created:", {
       id: stripeSession.id,
       url: stripeSession.url
     });
+    }
+    else{
+      
+    }
 
     // Create payment record
     const payment = await Payment.create(
@@ -373,7 +379,7 @@ export const createPayment = async (paymentData) => {
         paymentMethod: paymentData.paymentMethod || "credit_card",
         provider: paymentData.provider || "Stripe",
         status: paymentData.status || "pending",
-        stripeSessionId: stripeSession.id,
+        stripeSessionId: stripeSession.id || 0,
         // Add additional information
         currency: "USD",
         createdAt: new Date(),
@@ -382,14 +388,26 @@ export const createPayment = async (paymentData) => {
     );
 
     // Update order status
-    await Order.findByIdAndUpdate(
+    if(paymentData.paymentMethod == "credit_card")
+   { await Order.findByIdAndUpdate(
       order._id,
       { 
         status: 'processing_payment',
         updatedAt: new Date()
       },
       { session }
-    );
+    );}
+    else{
+      console.log("pending")
+      await Order.findByIdAndUpdate(
+      order._id,
+      { 
+        status: 'pending',
+        updatedAt: new Date()
+      },
+      { session }
+       );
+    }
 
     await session.commitTransaction();
     
@@ -504,7 +522,7 @@ const handlePaymentSuccess = async (session) => {
       await Order.findByIdAndUpdate(
         payment.order,
         {
-          status: "paid",
+          status: "pending",
           paidAt: new Date(),
           updatedAt: new Date(),
         },
@@ -731,6 +749,8 @@ const updatePaymentStatus = async (paymentId, data) => {
     throw appErrors.internal(error.message);
   }
 };
+
+// update payment method by order id 
 
 /**
  * Get all payments (Admin only)

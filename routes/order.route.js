@@ -43,6 +43,11 @@ router.get(
   orderController.getOrderById
 );
 
+router.get(
+  "/vendor/orders/:orderId",
+  checkRole(userRole.VENDOR),
+  orderController.getOrderById
+);
 /**
  * @route PATCH /orders/admin/orders/:orderId/status
  * @desc Update order status (Admin)
@@ -51,6 +56,14 @@ router.get(
 router.patch(
   "/admin/orders/:orderId/status",
   checkRole(userRole.ADMIN),
+  validate(updateOrderStatusSchema),
+  validateParams(validateOrderIdParam),
+  orderController.updateOrderStatus
+);
+
+router.patch(
+  "/vendor/orders/:orderId/status",
+  checkRole(userRole.VENDOR),
   validate(updateOrderStatusSchema),
   validateParams(validateOrderIdParam),
   orderController.updateOrderStatus

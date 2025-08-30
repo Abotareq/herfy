@@ -450,6 +450,7 @@ export const getFinalProductPrice = (
     }
 
     for (const vInput of variantInput) {
+      console.log("variant input ", vInput)
       const variant = product.variants.find(
         (v) => v.name === vInput.name && !v.isDeleted
       );
