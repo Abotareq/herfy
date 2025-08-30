@@ -84,7 +84,7 @@ const createOrder = async (orderData, userId) => {
       subtotal -
       discount +
       (orderData.shippingFee || 50) +
-      (orderData.tax || subtotal * 0.2);
+      (orderData.tax || subtotal * 0.02);
 
     // 6. Create order
     const [order] = await Order.create(
@@ -183,7 +183,7 @@ const getAllOrders = async (page = 1, limit = 10) => {
 };
 
 const getOrderById = async (orderId) => {
-  const order = await Order.findById(orderId).populate("orderItems.product");
+  const order = await Order.findById(orderId).populate("orderItems.product").populate("user");
   if (!order)
     throw AppErrors.notFound(
       httpMessages.ORDER_NOT_FOUND,
@@ -198,20 +198,56 @@ const getOrderById = async (orderId) => {
   };
 };
 
-const getSellerOrders = async (sellerId, page = 1, limit = 10) => {
+const getSellerOrders = async (
+  sellerId,
+  { page = 1, limit = 10, searchQuery = "", statusFilter = "" }
+) => {
   const skip = (page - 1) * limit;
 
+  // Get vendor store IDs
   const stores = await Store.find({ owner: sellerId }).select("_id");
   const storeIds = stores.map((s) => s._id);
 
-  const [orders, total] = await Promise.all([
-    Order.find({ "orderItems.store": { $in: storeIds } })
-      .populate("orderItems.product")
-      .skip(skip)
-      .limit(limit),
-    Order.countDocuments({ "orderItems.store": { $in: storeIds } }),
-  ]);
+  // Build query
+  const query = { "orderItems.store": { $in: storeIds } };
 
+  // Status filter
+  if (statusFilter !== "all") {
+    query.status = statusFilter;
+  }
+  else {
+    query.status = { $ne: "Cancelled" };
+  }
+
+  // Search filter
+  if (searchQuery) {
+    const searchRegex = new RegExp(searchQuery, "i"); // case-insensitive
+
+    // Check if search is an ObjectId (for orderId search)
+    if (/^[0-9a-fA-F]{24}$/.test(searchQuery)) {
+      query.$or = [
+        { _id: searchQuery }, // exact match by order ID
+        { "orderItems.name": { $regex: searchRegex } }, // match by product name
+      ];
+    } else {
+      query.$or = [
+        { "orderItems.name": { $regex: searchRegex } }, // product name
+        { status: { $regex: searchRegex } }, // status search
+      ];
+    }
+  }
+
+  // Fetch orders
+  const [orders, total] = await Promise.all([
+    Order.find(query)
+      .populate("orderItems.product")
+      .populate("user")
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 }),
+    Order.countDocuments(query),
+  ]);
+  console.log(orders)
   return {
     status: JSEND_STATUS.SUCCESS,
     statusCode: StatusCodes.OK,
@@ -226,6 +262,7 @@ const updateOrderStatus = async (orderId, status) => {
 
   try {
     const order = await Order.findById(orderId).session(session);
+    console.log("order",order);
     if (!order)
       throw AppErrors.notFound(
         httpMessages.ORDER_NOT_FOUND,
@@ -474,7 +511,6 @@ const deleteOrder = async (orderId) => {
 
 const getMyOrderById = async (orderId, userId) => {
   const order = await Order.findById(orderId).populate("orderItems.product");
-
   if (!order)
     throw AppErrors.notFound(
       httpMessages.ORDER_NOT_FOUND,

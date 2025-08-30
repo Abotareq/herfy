@@ -33,7 +33,7 @@ dotenv.config();
 async function getEmbedding(texts) {
   if (!texts) throw new Error("Text input is required for embedding.");
   const inputArray = Array.isArray(texts) ? texts : [texts];
-
+  console.log("Input array for embedding:", process.env.OPENAI_API_KEY);
   const response = await axios.post(
     "https://api.openai.com/v1/embeddings",
     {
@@ -44,7 +44,7 @@ async function getEmbedding(texts) {
       headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
     }
   );
-
+  console.log("Received embeddings:", response.data);
   return response.data.data.map((d) => d.embedding);
 }
 

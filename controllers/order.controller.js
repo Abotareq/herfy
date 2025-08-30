@@ -103,10 +103,7 @@ const getOrderById = asyncWrapper(async (req, res) => {
  */
 const getSellerOrders = asyncWrapper(async (req, res) => {
   const sellerId = req.user._id;
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 10;
-
-  const orders = await orderService.getSellerOrders(sellerId, page, limit);
+  const orders = await orderService.getSellerOrders(sellerId, req.query);
 
   res.status(StatusCodes.OK).json({
     status: JSEND_STATUS.SUCCESS,
@@ -122,7 +119,7 @@ const getSellerOrders = asyncWrapper(async (req, res) => {
 const updateOrderStatus = asyncWrapper(async (req, res) => {
   const { orderId } = req.params;
   const { status } = req.body;
-
+  console.log("hi")
   const order = await orderService.updateOrderStatus(orderId, status);
 
   res.status(StatusCodes.OK).json({

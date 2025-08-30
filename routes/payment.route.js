@@ -83,6 +83,13 @@ router.get(
   paymentController.getAllPayments
 );
 
+
+router.patch(
+  "/order/:id/status",
+  checkRole([userRole.ADMIN, userRole.VENDOR]),
+  validate(updatePaymentStatusSchema),
+  paymentController.updatePaymentStatusByOrderId
+);
 /**
  * @route PATCH /payments/:id/status
  * @desc Update payment status (Admin)
@@ -90,10 +97,11 @@ router.get(
  */
 router.patch(
   "/:id/status",
-  checkRole([userRole.ADMIN]),
+  checkRole([userRole.ADMIN, userRole.VENDOR]),
   validate(updatePaymentStatusSchema),
   paymentController.updatePaymentStatus
 );
+
 
 /**
  * ================================

@@ -36,6 +36,7 @@ export default validate;
 //*! osama 
 export const validateParams = (schema) => {
     return (req, res, next) => {
+      console.log("hi from val")
       const { error } = schema.validate(req.params, { abortEarly: false });
       if (error) {
         return res.status(400).json({

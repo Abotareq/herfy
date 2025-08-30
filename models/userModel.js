@@ -115,8 +115,8 @@ const userSchema = new mongoose.Schema(
     },
   }
 );
-userSchema.index({ email: 1 }, { unique: true });
-userSchema.index({ googleId: 1 }, { unique: true, sparse: true });
+// userSchema.index({ email: 1 }, { unique: true });
+// userSchema.index({ googleId: 1 }, { unique: true, sparse: true });
 /* userSchema.index({ email: 1 });
 userSchema.index({ phone: 1 }); */
 
