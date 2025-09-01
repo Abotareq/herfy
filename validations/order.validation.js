@@ -89,13 +89,16 @@ export const createOrderSchema = Joi.object({
   useExisting: Joi.boolean().required(),
 
   // shippingAddress can be an object with address fields, or a string "Profile Address"
+  paymentMethod: Joi.string()
+      .valid("credit_card", "paypal", "cash_on_delivery")
+      .required(),
   shippingAddress: Joi.alternatives()
     .try(
       Joi.string().valid("Profile Address"),
       Joi.object({
         street: Joi.string().required(),
         city: Joi.string().required(),
-        postalCode: Joi.string().required(),
+        postalCode: Joi.number().required(),
         country: Joi.string().required(),
       })
     )

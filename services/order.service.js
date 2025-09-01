@@ -26,11 +26,17 @@ const createOrder = async (orderData, userId) => {
       if (!user.addresses || user.addresses.length === 0) {
         throw AppErrors.badRequest("User has no saved addresses");
       }
-      shippingAddress = { ...user.addresses[0]._doc };
+      shippingAddress = 
+      {
+        street: user.addresses[0].street != undefined ? user.addresses[0].street : "",
+        city: user.addresses[0].city != undefined ? user.addresses[0].city : "",
+        postalCode: user.addresses[0].postalCode != undefined ? user.addresses[0].postalCode : 12333,
+        country: user.addresses[0].country != undefined ? user.addresses[0].country : "",
+      }
     } else {
       shippingAddress = orderData.shippingAddress;
     }
-
+    
     // 3. Get user cart
     const cart = await Cart.findOne({ user: userId })
       .populate("items.product")
@@ -93,6 +99,7 @@ const createOrder = async (orderData, userId) => {
           user: user._id,
           orderItems,
           shippingAddress,
+          paymentMethod:orderData.paymentMethod || "credit_card",
           coupon: cart.coupon || null,
           subtotal,
           shippingFee: orderData.shippingFee || 50,
@@ -200,7 +207,7 @@ const getOrderById = async (orderId) => {
 
 const getSellerOrders = async (
   sellerId,
-  { page = 1, limit = 10, searchQuery = "", statusFilter = "" }
+  { page = 1, limit = 10, searchQuery = "", statusFilter = "",paymentMethodFilter="" }
 ) => {
   const skip = (page - 1) * limit;
 
@@ -218,6 +225,15 @@ const getSellerOrders = async (
   else {
     query.status = { $ne: "Cancelled" };
   }
+
+  if(paymentMethodFilter == "all"){
+    // credit or cod
+    query.paymentMethod = { $in: ["credit_card", "cash_on_delivery"] };
+  }
+  else{
+    query.paymentMethod = paymentMethodFilter;
+  }
+  console.log("Query:", query);
 
   // Search filter
   if (searchQuery) {
@@ -247,7 +263,7 @@ const getSellerOrders = async (
       .sort({ createdAt: -1 }),
     Order.countDocuments(query),
   ]);
-  console.log(orders)
+  console.log("orders : ",orders)
   return {
     status: JSEND_STATUS.SUCCESS,
     statusCode: StatusCodes.OK,
@@ -638,6 +654,46 @@ const updateOrderItem = async (orderId, itemId, fields, file) => {
   }
 };
 
+const getStoreOrders = async (
+  storeId,
+  { page = 1, limit = 10, status = "" } = {}
+) => {
+  const skip = (page - 1) * limit;
+
+  // Base query: orders that include items from this store
+  const query = { "orderItems.store": storeId };
+
+  // Optional filter by status
+  if (status) {
+    query.status = status;
+  }
+
+  const [orders, count] = await Promise.all([
+    Order.find(query)
+      .skip(skip)
+      .limit(limit)
+      .populate("user", "name email") // include user info
+      .populate("orderItems.product", "name price"), // include product info
+    Order.countDocuments(query),
+  ]);
+
+  if (!orders || orders.length === 0) {
+    throw AppErrors.notFound(
+      "No orders found for this store",
+      StatusCodes.NOT_FOUND
+    );
+  }
+
+  return {
+    data: {
+      orders,
+      totalOrders: count,
+      totalPages: Math.ceil(count / limit),
+    },
+  };
+};
+
+
 export default {
   createOrder,
   getUserOrders,
@@ -649,4 +705,5 @@ export default {
   cancelOrder,
   deleteOrder,
   updateOrderItem,
+  getStoreOrders
 };

@@ -68,14 +68,15 @@ const updatePaymentStatusByOrderId = asyncWrapper(async (req, res) => {
 
   const payment = await Payment.findOne({ order: req.params.id });
 
-  console.log(req.params.id,req.body.status,payment);
-  if(!payment){
+  console.log("hi ", req.params.id, req.body.status, payment);
+  if (!payment) {
     return res.status(StatusCodes.NOT_FOUND).json({ status: JSEND_STATUS.FAIL, message: "Payment not found" });
   }
   const updatedPayment = await paymentService.updatePaymentStatus(
     payment._id,
-    req.body.status
+    { status: req.body.status }
   );
+  console.log("Updated Payment: ", updatedPayment);
   res
     .status(StatusCodes.OK)
     .json({ status: JSEND_STATUS.SUCCESS, data: updatedPayment });

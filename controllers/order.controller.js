@@ -184,6 +184,23 @@ const updateOrderItems = asyncWrapper(async (req, res) => {
   });
 });
 
+const getStoreOrders = asyncWrapper(async (req, res) => {
+  const { storeId } = req.params;
+  const { page, limit, status } = req.query;
+
+  console.log("store id", storeId);
+  const orders = await orderService.getStoreOrders(storeId, {
+    page,
+    limit,
+    status
+  });
+
+  res.status(StatusCodes.OK).json({
+    status: JSEND_STATUS.SUCCESS,
+    data: orders,
+  });
+});
+
 export default {
   createOrder,
   getUserOrders,
@@ -195,4 +212,5 @@ export default {
   cancelOrder,
   deleteOrder,
   updateOrderItems,
+  getStoreOrders
 };
