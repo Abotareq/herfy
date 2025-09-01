@@ -156,4 +156,11 @@ router.patch(
   orderController.updateOrderItems
 );
 
+
+router.get(
+  "/store/:storeId",
+  checkRole([userRole.VENDOR, userRole.ADMIN]),
+  orderController.getStoreOrders
+)
+
 export default router;
