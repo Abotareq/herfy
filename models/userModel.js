@@ -28,6 +28,7 @@ import Embedding from "./Embedding.js";
 const addressSchema = new mongoose.Schema({
   buildingNo: { type: Number, required: true }, // 4
   street: { type: String, required: true }, // Al Shohadaa
+  postalCode: { type: Number, required: false }, //12345
   nearestLandMark: { type: String, required: false }, //school
   city: { type: String, required: true }, // Juhayna
   governorate: { type: String, required: true }, // sohag
