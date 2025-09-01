@@ -57,10 +57,16 @@ const orderSchema = new mongoose.Schema({
     required: true,
   },
   orderItems: [orderItemSchema],
+  paymentMethod: {
+    type: String,
+    required: true,
+    enum: ['credit_card', 'cash_on_delivery'],
+    default: 'credit_card',
+  },
   shippingAddress: {
     street: { type: String, required: true },
     city: { type: String, required: true },
-    postalCode: { type: String, required: true },
+    postalCode: { type: Number, required: true },
     country: { type: String, required: true },
   },
   coupon: { type: mongoose.Schema.Types.ObjectId, ref: 'Coupon' },
