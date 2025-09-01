@@ -27,7 +27,7 @@ const createStore = async (data) => {
     if (!user) {
       throw AppErrors.notFound("User not found");
     }
-
+    console.log("user", user);
     // Optional: Ensure user does not already own a store if your business logic enforces one-store-per-user
     // const existingStore = await Store.findOne({ owner: data.owner }).session(session);
     // if (existingStore) {
@@ -36,16 +36,16 @@ const createStore = async (data) => {
 
     // Generate slug from name
     const generatedSlug = slugify(data.name, { lower: true });
-
+    console.log("generatedSlug", generatedSlug);
     // Check if store with same slug already exists for this owner
     const existingStore = await Store.findOne({
-      owner: data.owner,
       slug: generatedSlug,
     }).session(session);
-
+    console.log("existingStore", existingStore);
     if (existingStore) {
+      console.log("hi from createStore");
       throw AppErrors.badRequest(
-        "Store with this name already exists for this owner."
+        "Store with this name already exists."
       );
     }
 
