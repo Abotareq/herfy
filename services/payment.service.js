@@ -522,7 +522,7 @@ const handlePaymentSuccess = async (session) => {
       await Order.findByIdAndUpdate(
         payment.order,
         {
-          status: "pending",
+          status: "paid",
           paidAt: new Date(),
           updatedAt: new Date(),
         },
@@ -697,7 +697,7 @@ const updatePaymentStatus = async (paymentId, data) => {
     if (!payment) {
       throw appErrors.notFound("Payment not found");
     }
-
+    console.log("Current Payment Status:", payment.status, "-> New Status:", data.status);
     // 3. Check if status change is valid
     if (payment.status === data.status) {
       throw appErrors.badRequest(`Payment is already '${data.status}'`);
