@@ -13,6 +13,7 @@ const storeSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Store name is required'],
     trim: true,
+    unique: true,
   },
   slug: String,
   description: {
