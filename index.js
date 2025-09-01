@@ -32,7 +32,7 @@ import cartRoute from "./routes/cart.route.js";
 import couponRouter from "./routes/cupon.route.js";
 import reviewRouter from "./routes/review.route.js";
 
-// rag import 
+// rag import
 import ragHandler from "./rag/rag.js";
 import { addDocument } from "./rag/vectorStore.js";
 import getEmbedding from "./rag/embed.js";
@@ -51,12 +51,16 @@ import Stripe from "stripe";
 
 //*------------------------------------app setup------------------------------------*//
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 app.set("trust proxy", "loopback");
 //*------------------------------------middlewares------------------------------------*//
 app.use(helmet());
-      // Allow requests if origin is in the list or if request has no origin (like Postman)
-const allowedOrigins = ["http://localhost:4200", "http://localhost:3001", "http://localhost:3000"];
+// Allow requests if origin is in the list or if request has no origin (like Postman)
+const allowedOrigins = [
+  "http://localhost:4200",
+  "http://localhost:3001",
+  "http://localhost:3000",
+];
 app.use(
   cors({
     origin: function (origin, callback) {
@@ -131,7 +135,9 @@ app.use("/api/payments", paymentRoute);
 app.use("/api/cart", cartRoute);
 app.use("/api/coupon", couponRouter);
 app.use("/api/review", reviewRouter);
-app.use(  "/api/uploads",  express.static(path.join(__dirname, "uploads/Category"))
+app.use(
+  "/api/uploads",
+  express.static(path.join(__dirname, "uploads/Category"))
 );
 // means that uploads/Category is a static folder
 app.use("/api/product", productRoute);
