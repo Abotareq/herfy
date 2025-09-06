@@ -87,6 +87,49 @@ export const signIn = async (req, res, next) => {
     return next(new ErrorResponse(err.message, StatusCodes.INTERNAL_SERVER));
   }
 };
+export const AdminsignIn = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return next(new ErrorResponse("User not found", StatusCodes.NOT_FOUND));
+    }
+    if (user.role !== "ADMIN") {
+      return next(
+        new ErrorResponse("Not authorized as an admin", StatusCodes.FORBIDDEN)
+      );
+    }
+    if (!user.password) {
+      return next(
+        new ErrorResponse(
+          "This account uses Google sign-in",
+          StatusCodes.UNAUTHORIZED
+        )
+      );
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return next(
+        new ErrorResponse("Wrong credentials", StatusCodes.UNAUTHORIZED)
+      );
+    }
+
+    const token = generateToken(user);
+    const { password: _, ...safeUser } = user.toObject();
+
+    return res
+      .cookie("access_token", token, {
+        httpOnly: true,
+        expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      })
+      .status(StatusCodes.OK)
+      .json({ user: safeUser });
+  } catch (err) {
+    return next(new ErrorResponse(err.message, StatusCodes.INTERNAL_SERVER));
+  }
+};
 export const verifyToken = (req, res, next) => {
   try {
     const token = req.cookies?.access_token;
