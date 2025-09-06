@@ -1,4 +1,4 @@
-import {getAllCupons, addCupon, getCuponById, updateCoupon,deleteCoupon, deleteCouponByVendor} from '../controllers/cupon.controller.js';
+import {getAllCupons, addCupon, getCuponById, updateCoupon,deleteCoupon, deleteCouponByVendor,getVendorCoupons, updateCouponByVendor} from '../controllers/cupon.controller.js';
 import express from 'express';
 import { requireAuth,checkRole } from '../auth/auth.middleware.js';
 import userRole from '../utils/user.role.js';
@@ -8,12 +8,15 @@ const couponRouter = express.Router();
 couponRouter.get('/search', requireAuth, searchCouponByCode);
 couponRouter.get('/filter', requireAuth, filterCouponByActive)
 
-couponRouter.get('/',requireAuth,checkRole([userRole.ADMIN,userRole.VENDOR]), getAllCupons);
+couponRouter.get('/',requireAuth,checkRole([userRole.ADMIN]), getAllCupons);
+couponRouter.get('/me',requireAuth,checkRole([userRole.VENDOR]), getVendorCoupons);
 couponRouter.get('/:id',requireAuth,checkRole([userRole.ADMIN]), getCuponById);
 couponRouter.post('/',requireAuth,checkRole([userRole.ADMIN,userRole.VENDOR]),  addCupon);
 couponRouter.patch('/:id',requireAuth,checkRole([userRole.ADMIN,userRole.VENDOR]),  updateCoupon);
+couponRouter.patch('/me/:code',requireAuth,checkRole([userRole.VENDOR]),  updateCouponByVendor);
+
 couponRouter.delete('/:id',requireAuth,checkRole([userRole.ADMIN]),  deleteCoupon);
-couponRouter.delete('/:code',requireAuth,checkRole([userRole.VENDOR]),  deleteCouponByVendor);
+couponRouter.delete('/me/:code',requireAuth,checkRole([userRole.VENDOR]),  deleteCouponByVendor);
 // couponRouter.get('/search', requireAuth, searchCouponByCode);
 // couponRouter.get('/filter', requireAuth, filterCouponByActive)
 
