@@ -750,16 +750,44 @@ const removeItemFromCart = async (userId, itemId) => {
  * @returns {Object} MongoDB query filters.
  */
 const applyFilters = (queryParams) => {
-  const filters = {};
+  const filter = {};
 
-  if (queryParams.selectedStatus === "Active") {
-    filters.isDeleted = false;
-  } else if (queryParams.selectedStatus === "Deleted") {
-    filters.isDeleted = true;
+  // Match isDeleted status
+  if (queryParams.status === "active") {
+    filter.isDeleted = false;
+  } else if (queryParams.status === "deleted") {
+    filter.isDeleted = true;
   }
-  // if 'all' or undefined => no filter applied for isDeleted
 
-  return filters;
+  // Search filter
+  if (queryParams.search) {
+    const searchRegex = new RegExp(queryParams.search, 'i');
+    const orConditions = [
+      { 'items.variant.name': searchRegex },
+      { 'items.variant.value': searchRegex },
+      { 'items.sku': searchRegex },
+    ];
+
+    // If search is a number, include quantity
+    if (!isNaN(queryParams.search)) {
+      orConditions.push({ 'items.quantity': Number(queryParams.search) });
+    }
+
+    // Match _id as string using $expr
+    orConditions.push({
+      $expr: {
+        $regexMatch: {
+          input: { $toString: "$_id" },
+          regex: queryParams.search,
+          options: "i"
+        }
+      }
+    });
+
+    filter.$or = orConditions;
+  }
+
+  return filter;
 };
 
 /**
@@ -814,7 +842,7 @@ const getAllCarts = async (page = 1, limit = 20, sortBy, queryParams = {}) => {
   ]);
 
   const totalPages = Math.ceil(total / limit);
-  console.log(`Total pages: ${carts}`);
+
   return {
     carts,
     total,
@@ -822,6 +850,7 @@ const getAllCarts = async (page = 1, limit = 20, sortBy, queryParams = {}) => {
     currentPage: page,
   };
 };
+
 /**
  * Admin: Get a specific cart by ID.
  */
