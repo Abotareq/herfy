@@ -26,12 +26,13 @@ const createOrder = async (orderData, userId) => {
       if (!user.addresses || user.addresses.length === 0) {
         throw AppErrors.badRequest("User has no saved addresses");
       }
+      const defaultAddress = user.addresses.find(addr => addr.isDefault) || user.addresses[0];
       shippingAddress = 
       {
-        street: user.addresses[0].street != undefined ? user.addresses[0].street : "",
-        city: user.addresses[0].city != undefined ? user.addresses[0].city : "",
-        postalCode: user.addresses[0].postalCode != undefined ? user.addresses[0].postalCode : 12333,
-        country: user.addresses[0].country != undefined ? user.addresses[0].country : "",
+        street: defaultAddress.street != undefined ? defaultAddress.street : "",
+        city: defaultAddress.city != undefined ? defaultAddress.city : "",
+        postalCode: defaultAddress.postalCode != undefined ? defaultAddress.postalCode : 12333,
+        country: defaultAddress.country != undefined ? defaultAddress.country : "",
       }
     } else {
       shippingAddress = orderData.shippingAddress;
@@ -82,15 +83,32 @@ const createOrder = async (orderData, userId) => {
         image: product.images?.[0] || "",
       });
     }
+     // 5. Update store order counts
+    const storeIds = [
+      ...new Set(orderItems.map((item) => item.store.toString())),
+    ];
+    await Store.updateMany(
+      { _id: { $in: storeIds } },
+      { $inc: { ordersCount: 1 } }, // increment active order count
+      { session }
+    );
 
-    // 5. Calculate totals
+    // for dev
+    if (userId) {
+      await User.updateOne(
+        { _id: userId },
+        {
+          $inc: { activeOrders: 1 },
+        },
+        { session }
+      );
+    }
+  // 6. Calculate totals
     const subtotal = cart.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const discount = cart.discount || 0;
-    const totalAmount =
-      subtotal -
-      discount +
-      (orderData.shippingFee || 50) +
-      (orderData.tax || subtotal * 0.02);
+    const shippingFee = orderData.shippingFee || 50;
+    const tax = orderData.tax || subtotal * 0.02;
+    const totalAmount = subtotal - discount + shippingFee + tax;
 
     // 6. Create order
     const [order] = await Order.create(
@@ -110,7 +128,17 @@ const createOrder = async (orderData, userId) => {
       ],
       { session }
     );
-
+       // 8. Update user order statistics
+    await User.updateOne(
+      { _id: userId },
+      {
+        $inc: { 
+          ordersCount: 1,
+          activeOrders: 1 
+        },
+      },
+      { session }
+    );
     // 7. Clear cart
     cart.items = [];
     cart.total = 0;
@@ -129,24 +157,6 @@ const createOrder = async (orderData, userId) => {
     throw error;
   }
 };
-// const getUserOrders = async (userId, page = 1, limit = 10) => {
-//   const skip = (page - 1) * limit;
-
-//   const [orders, total] = await Promise.all([
-//     Order.find({ user: userId })
-//       .populate("orderItems.product")
-//       .skip(skip)
-//       .limit(limit),
-//     Order.countDocuments({ user: userId }),
-//   ]);
-
-//   return {
-//     status: JSEND_STATUS.SUCCESS,
-//     statusCode: StatusCodes.OK,
-//     message: httpMessages.ORDERS_FETCHED,
-//     data: { orders, page, pages: Math.ceil(total / limit), total },
-//   };
-// };
 
 const getUserOrders = async (userId, page = 1, limit = 10, status = "") => {
   const skip = (page - 1) * limit;
@@ -277,8 +287,11 @@ const updateOrderStatus = async (orderId, status) => {
   session.startTransaction();
 
   try {
-    const order = await Order.findById(orderId).session(session);
-    console.log("order",order);
+    const order = await Order.findById(orderId)
+      .populate("orderItems.product")
+      .session(session);
+    
+    console.log("order", order);
     if (!order)
       throw AppErrors.notFound(
         httpMessages.ORDER_NOT_FOUND,
@@ -302,22 +315,66 @@ const updateOrderStatus = async (orderId, status) => {
         "Cannot cancel an order that is already delivered."
       );
 
+    // // Handle payment status updates
+    if (status === "confirmed" || status === "paid") {
+      await Payment.updateOne(
+        { order: orderId },
+        { status: "completed" },
+        { session }
+      );
+    }
+
     // Refund stock on cancellation
     if (status === "Cancelled" && order.status !== "Cancelled") {
+      // Refund stock for each item
       for (const item of order.orderItems) {
-        await Product.findByIdAndUpdate(
-          item.product,
-          { $inc: { stock: item.quantity } },
-          { session }
-        );
+        const product = await Product.findById(item.product).session(session);
+        if (product && item.variant && item.variant.length > 0) {
+          // Restore variant stock
+          for (const chosenVariant of item.variant) {
+            const variant = product.variants.find(v => v.name === chosenVariant.name);
+            if (variant) {
+              const option = variant.options.find(o => o.value === chosenVariant.value);
+              if (option) {
+                option.stock += item.quantity;
+              }
+            }
+          }
+          await product.save({ session });
+        }
       }
 
+      // Update store order counts
       const storeIds = [
         ...new Set(order.orderItems.map((item) => item.store.toString())),
       ];
       await Store.updateMany(
         { _id: { $in: storeIds } },
-        { $pull: { orders: order._id } },
+        { $inc: { ordersCount: -1 } }, // decrement active order count
+        { session }
+      );
+
+      // Update user statistics
+      if (order.user) {
+        await User.updateOne(
+          { _id: order.user },
+          {
+            $inc: { 
+              cancelledOrders: 1,
+              activeOrders: -1 
+            },
+          },
+          { session }
+        );
+      }
+
+      // Update payment status to refunded
+      await Payment.updateOne(
+        { order: orderId },
+        { 
+          status: "refunded",
+          refundedAt: new Date()
+        },
         { session }
       );
     }
@@ -341,21 +398,27 @@ const updateOrderStatus = async (orderId, status) => {
   }
 };
 
+
 const cancelOrder = async (orderId, userId) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    const order = await Order.findById(orderId).session(session);
+    const order = await Order.findById(orderId)
+      .populate("orderItems.product")
+      .session(session);
+      
     if (!order)
       throw AppErrors.notFound(
         httpMessages.ORDER_NOT_FOUND,
         StatusCodes.NOT_FOUND
       );
+
     // Security Check: Verify ownership before allowing cancellation.
     if (order.user.toString() !== userId.toString()) {
       throw AppErrors.forbidden(httpMessages.UNAUTHORIZED);
     }
+
     if (order.status === "cancelled")
       throw AppErrors.badRequest(
         httpMessages.ORDER_ALREADY_CANCELLED,
@@ -370,15 +433,25 @@ const cancelOrder = async (orderId, userId) => {
         StatusCodes.BAD_REQUEST
       );
 
-    // Refund stock
+    // Refund stock for products with variants
     for (const item of order.orderItems) {
       const product = await Product.findById(item.product).session(session);
-      if (product) {
-        product.stock += item.quantity;
+      if (product && item.variant && item.variant.length > 0) {
+        // Restore variant stock
+        for (const chosenVariant of item.variant) {
+          const variant = product.variants.find(v => v.name === chosenVariant.name);
+          if (variant) {
+            const option = variant.options.find(o => o.value === chosenVariant.value);
+            if (option) {
+              option.stock += item.quantity;
+            }
+          }
+        }
         await product.save({ session });
       }
     }
 
+    // Update store order counts
     const storeIds = [
       ...new Set(order.orderItems.map((item) => item.store.toString())),
     ];
@@ -388,17 +461,29 @@ const cancelOrder = async (orderId, userId) => {
       { session }
     );
 
-    // for dev
+    // Update user statistics
     if (order.user) {
       await User.updateOne(
         { _id: order.user },
         {
-          $inc: { cancelledOrders: 1 },
-          $inc: { activeOrders: -1 },
+          $inc: { 
+            cancelledOrders: 1,
+            activeOrders: -1 
+          },
         },
         { session }
       );
     }
+
+    // Update payment status
+    await Payment.updateOne(
+      { order: orderId },
+      { 
+        status: "refunded",
+        refundedAt: new Date()
+      },
+      { session }
+    );
 
     order.status = "cancelled";
     await order.save({ session });
@@ -419,6 +504,7 @@ const cancelOrder = async (orderId, userId) => {
   }
 };
 
+
 const deleteOrder = async (orderId) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -427,7 +513,10 @@ const deleteOrder = async (orderId) => {
     // ========================
     // STEP 1: Find order with session
     // ========================
-    const order = await Order.findById(orderId).session(session);
+    const order = await Order.findById(orderId)
+      .populate("orderItems.product")
+      .session(session);
+      
     if (!order) {
       throw AppErrors.notFound(
         httpMessages.ORDER_NOT_FOUND,
@@ -435,7 +524,7 @@ const deleteOrder = async (orderId) => {
       );
     }
 
-    // Check if order is cancelled
+    // Check if order is already cancelled
     if (order.status === "cancelled") {
       throw AppErrors.badRequest(
         httpMessages.ORDER_ALREADY_CANCELLED,
@@ -454,13 +543,22 @@ const deleteOrder = async (orderId) => {
     }
 
     // ========================
-    // STEP 3: Refund stock for each item concurrently (improve performance)
+    // STEP 3: Refund stock for each item with variants
     // ========================
     await Promise.all(
       order.orderItems.map(async (item) => {
         const product = await Product.findById(item.product).session(session);
-        if (product) {
-          product.stock += item.quantity;
+        if (product && item.variant && item.variant.length > 0) {
+          // Restore variant stock
+          for (const chosenVariant of item.variant) {
+            const variant = product.variants.find(v => v.name === chosenVariant.name);
+            if (variant) {
+              const option = variant.options.find(o => o.value === chosenVariant.value);
+              if (option) {
+                option.stock += item.quantity;
+              }
+            }
+          }
           await product.save({ session });
         }
       })
@@ -473,7 +571,10 @@ const deleteOrder = async (orderId) => {
       await User.updateOne(
         { _id: order.user },
         {
-          $inc: { cancelledOrders: 1, activeOrders: -1 },
+          $inc: { 
+            cancelledOrders: 1, 
+            activeOrders: -1 
+          },
         },
         { session }
       );
@@ -494,7 +595,19 @@ const deleteOrder = async (orderId) => {
     );
 
     // ========================
-    // STEP 6: Soft delete by setting storeDeletedAt and status
+    // STEP 6: Update payment status
+    // ========================
+    await Payment.updateOne(
+      { order: orderId },
+      { 
+        status: "refunded",
+        refundedAt: new Date()
+      },
+      { session }
+    );
+
+    // ========================
+    // STEP 7: Soft delete by setting storeDeletedAt and status
     // ========================
     order.storeDeletedAt = new Date();
     order.status = "cancelled"; // update status to cancelled
@@ -504,13 +617,13 @@ const deleteOrder = async (orderId) => {
     // await order.deleteOne({ session });
 
     // ===========================
-    // STEP 7: Commit transaction
+    // STEP 8: Commit transaction
     // ===========================
     await session.commitTransaction();
     session.endSession();
 
     // ========================
-    // STEP 8: Return success response
+    // STEP 9: Return success response
     // ========================
     return {
       status: JSEND_STATUS.SUCCESS,
@@ -524,6 +637,7 @@ const deleteOrder = async (orderId) => {
     throw error;
   }
 };
+
 
 const getMyOrderById = async (orderId, userId) => {
   const order = await Order.findById(orderId).populate("orderItems.product");

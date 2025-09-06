@@ -68,24 +68,24 @@ const cartSchema = new mongoose.Schema({
 // -------------------- Auto Incremental RAG Training -------------------- //
 
 // After create/save
-// cartSchema.post("save", async function (doc) {
-//   try {
-//     const itemsContent = doc.items.map(
-//       (i) => `Product: ${i.product}, Qty: ${i.quantity}, Variant: ${JSON.stringify(i.variant)}, Price: ${i.price}`
-//     ).join(" | ");
+cartSchema.post("save", async function (doc) {
+  try {
+    const itemsContent = doc.items.map(
+      (i) => `Product: ${i.product}, Qty: ${i.quantity}, Variant: ${JSON.stringify(i.variant)}, Price: ${i.price}`
+    ).join(" | ");
 
-//     const content = `Cart for user: ${doc.user}, Items: ${itemsContent}, Coupon: ${doc.coupon}, Total: ${doc.total}, Discount: ${doc.discount}, TotalAfterDiscount: ${doc.totalAfterDiscount}`;
+    const content = `Cart for user: ${doc.user}, Items: ${itemsContent}, Coupon: ${doc.coupon}, Total: ${doc.total}, Discount: ${doc.discount}, TotalAfterDiscount: ${doc.totalAfterDiscount}`;
 
-//     await addDocument(`${doc._id}`, content, {
-//       type: "cart",
-//       cartId: doc._id,
-//       userId: doc.user,
-//     });
-//     console.log(`RAG embeddings updated for cart ${doc._id}`);
-//   } catch (err) {
-//     console.error("RAG auto-train error for Cart (save):", err.message);
-//   }
-// });
+    await addDocument(`${doc._id}`, content, {
+      type: "cart",
+      cartId: doc._id,
+      userId: doc.user,
+    });
+    console.log(`RAG embeddings updated for cart ${doc._id}`);
+  } catch (err) {
+    console.error("RAG auto-train error for Cart (save):", err.message);
+  }
+});
 
 // After findOneAndUpdate
 cartSchema.post("findOneAndUpdate", async function (doc) {

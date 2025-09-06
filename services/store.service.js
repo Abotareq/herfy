@@ -66,6 +66,7 @@ const createStore = async (data) => {
           name: data.name,
           description: data.description,
           logoUrl: data.logoUrl,
+          status: data.status || "pending", // default to pending if not provided
           location: {
             type: "Point",
             coordinates: data.location.coordinates, // expects [longitude, latitude]

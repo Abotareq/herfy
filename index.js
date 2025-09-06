@@ -144,7 +144,7 @@ app.use("/api/product", productRoute);
 // user Route
 
 // rag middleware
-app.post("/rag", ragHandler);
+app.post("/api/rag", ragHandler);
 
 //*------------------------------------error handler (last)------------------------------------*//
 app.use(errorHandler);
