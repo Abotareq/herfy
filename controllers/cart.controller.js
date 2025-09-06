@@ -128,7 +128,7 @@ export const getAllCarts = asyncWrapper(async (req, res) => {
   const limit = parseInt(req.query.limit) || 10;
   const { sortBy, ...filters } = req.query;
   const data = await cartService.getAllCarts(page, limit, sortBy, filters);
-  console.log(data.carts);
+  console.log(data);
   res.status(StatusCodes.OK).json({
     status: JSEND_STATUS.SUCCESS,
     data: { carts: data.carts },
