@@ -19,6 +19,7 @@ const createOrder = asyncWrapper(async (req, res) => {
   // for test
   // add valid user mongodb id value
   // const userId = "649c1f1f1f1f1f1f1f1f1f1f"; // Assuming user ID is available in req.user.id
+  console.log("hi from order")
   const order = await orderService.createOrder(req.body, userId);
   res.status(StatusCodes.CREATED).json({
     status: JSEND_STATUS.SUCCESS,

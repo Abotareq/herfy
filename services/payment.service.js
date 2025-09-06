@@ -140,7 +140,7 @@ export const createPayment = async (paymentData) => {
     else{
       
     }
-
+    console.log("Payment data:", paymentData);
     // Create payment record
     const payment = await Payment.create(
       [{
@@ -471,6 +471,7 @@ const updatePaymentStatus = async (paymentId, data) => {
     console.log("Current Payment Status:", payment.status, "-> New Status:", data.status);
     // 3. Check if status change is valid
     if (payment.status === data.status) {
+      console.log("No status change required");
       throw appErrors.badRequest(`Payment is already '${data.status}'`);
     }
 

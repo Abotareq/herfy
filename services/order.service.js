@@ -94,9 +94,9 @@ const createOrder = async (orderData, userId) => {
     );
 
     // for dev
-    if (order.user) {
+    if (userId) {
       await User.updateOne(
-        { _id: order.user },
+        { _id: userId },
         {
           $inc: { activeOrders: 1 },
         },
@@ -315,8 +315,8 @@ const updateOrderStatus = async (orderId, status) => {
         "Cannot cancel an order that is already delivered."
       );
 
-    // Handle payment status updates
-    if (status === "confirmed" || status === "processing") {
+    // // Handle payment status updates
+    if (status === "confirmed" || status === "paid") {
       await Payment.updateOne(
         { order: orderId },
         { status: "completed" },
