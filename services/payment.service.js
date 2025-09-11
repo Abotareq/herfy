@@ -302,9 +302,9 @@ const handlePaymentSuccess = async (session) => {
     }
 
     // Send reminder email if user email exists
-    if (payment?.user?.email) {
-      await sendReminderEmail(payment, payment.user.email);
-    }
+    // if (payment?.user?.email) {
+    //   await sendReminderEmail(payment, payment.user.email);
+    // }
 
     await paymentSession.commitTransaction();
     console.log(`Payment completed for session: ${session.id}`);
