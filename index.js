@@ -48,11 +48,12 @@ import Review from "./models/reviewModel.js";
 import paymentService from "./services/payment.service.js";
 import bodyParser from "body-parser";
 import Stripe from "stripe";
+import sendReminderEmail from "./utils/email.notifications.js";
 
 //*------------------------------------app setup------------------------------------*//
 const app = express();
 const PORT = process.env.PORT || 5000;
-app.set("trust proxy", "loopback");
+app.set("trust proxy", 1);
 //*------------------------------------middlewares------------------------------------*//
 app.use(helmet());
 // Allow requests if origin is in the list or if request has no origin (like Postman)
@@ -60,7 +61,10 @@ const allowedOrigins = [
   "http://localhost:4200",
   "http://localhost:3001",
   "http://localhost:3000",
+  process.env.CLIENT_URL, // from .env -> production frontend URL
+  process.env.ADMIN_URL
 ];
+
 app.use(
   cors({
     origin: function (origin, callback) {
@@ -70,18 +74,48 @@ app.use(
         callback(new Error("Not allowed by CORS"));
       }
     },
-    credentials: true, // allows sending/receiving cookies
+    credentials: true, // allow cookies
   })
 );
+// app.post(
+//   "/api/webhook",
+//   bodyParser.raw({ type: "application/json" }), // raw body is required for Stripe
+//   async (req, res) => {
+//     const sig = req.headers["stripe-signature"];
+//     let event;
+
+//     try {
+//       // Verify that the event is actually from Stripe
+//       event = Stripe.webhooks.constructEvent(
+//         req.body,
+//         sig,
+//         process.env.STRIPE_WEBHOOK_SECRET
+//       );
+//     } catch (err) {
+//       console.error("Webhook signature verification failed:", err.message);
+//       return res.status(400).send(`Webhook Error: ${err.message}`);
+//     }
+
+//     try {
+//       // Handle the Stripe event
+//       await paymentService.handleStripeWebhook(event);
+//       res.json({ received: true });
+//     } catch (err) {
+//       console.error("Webhook handling failed:", err);
+//       res.status(500).send("Webhook handler error");
+//     }
+//   }
+// );
+// Webhook endpoint
 app.post(
   "/api/webhook",
-  bodyParser.raw({ type: "application/json" }), // raw body is required for Stripe
+  bodyParser.raw({ type: "application/json" }), // Stripe requires raw body
   async (req, res) => {
     const sig = req.headers["stripe-signature"];
     let event;
 
     try {
-      // Verify that the event is actually from Stripe
+      // Verify Stripe signature
       event = Stripe.webhooks.constructEvent(
         req.body,
         sig,
@@ -95,6 +129,25 @@ app.post(
     try {
       // Handle the Stripe event
       await paymentService.handleStripeWebhook(event);
+
+      // Example: Send email on successful payment
+      if (event.type === "payment_intent.succeeded" || event.type === "checkout.session.completed") {
+        const paymentData = event.data.object;
+        // Call Resend email function
+        // Extract user email from payment data
+        const userEmail = paymentData.receipt_email || paymentData.customer_email;
+        if (userEmail) {
+          console.log("user email", userEmail)
+          await sendReminderEmail({
+            order: paymentData.id,
+            amount: (paymentData.amount / 100).toFixed(2),
+            paymentMethod: paymentData.payment_method_types?.[0] || "Card",
+            status: paymentData.status,
+            updatedAt: paymentData.created * 1000, // Stripe timestamps are in seconds
+          }, userEmail);
+        }
+      }
+
       res.json({ received: true });
     } catch (err) {
       console.error("Webhook handling failed:", err);
@@ -271,10 +324,9 @@ connecToDb();
 // })();
 
 //*------------------------------------host server ------------------------------------*//   osama saad
-app.listen(PORT, () => {
-  console.log(`🚀 Server is running on https://herafy-backend.up.railway.app`);
+app.listen(process.env.PORT || 5000, () => {
+  console.log(`Server running on port ${process.env.PORT || 5000}`);
 });
-
 //*------------------------------------graceful shutdown------------------------------------*/
 process.on("SIGINT", async () => {
   await closeDbConnection();
