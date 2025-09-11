@@ -5,6 +5,20 @@ import StatusCodes from "../utils/status.codes.js";
 import ErrorResponse from "../utils/error-model.js";
 import jwt from "jsonwebtoken";
 
+const isProd = process.env.NODE_ENV === "production";
+
+/**
+ * Helper to set cookie
+ */
+const setAuthCookie = (res, token) => {
+  return res.cookie("access_token", token, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
+    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+  });
+};
+
 export const signUp = async (req, res, next) => {
   try {
     const { userName, firstName, lastName, email, phone, password } = req.body;
@@ -36,11 +50,7 @@ export const signUp = async (req, res, next) => {
     const token = generateToken(user);
     const { password: _, ...safeUser } = user.toObject();
 
-    return res
-      .cookie("access_token", token, {
-        httpOnly: true,
-        expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-      })
+    return setAuthCookie(res, token)
       .status(StatusCodes.CREATED)
       .json({ user: safeUser });
   } catch (err) {
@@ -76,17 +86,14 @@ export const signIn = async (req, res, next) => {
     const token = generateToken(user);
     const { password: _, ...safeUser } = user.toObject();
 
-    return res
-      .cookie("access_token", token, {
-        httpOnly: true,
-        expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      })
+    return setAuthCookie(res, token)
       .status(StatusCodes.OK)
       .json({ user: safeUser });
   } catch (err) {
     return next(new ErrorResponse(err.message, StatusCodes.INTERNAL_SERVER));
   }
 };
+
 export const AdminsignIn = async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -119,17 +126,14 @@ export const AdminsignIn = async (req, res, next) => {
     const token = generateToken(user);
     const { password: _, ...safeUser } = user.toObject();
 
-    return res
-      .cookie("access_token", token, {
-        httpOnly: true,
-        expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      })
+    return setAuthCookie(res, token)
       .status(StatusCodes.OK)
       .json({ user: safeUser });
   } catch (err) {
     return next(new ErrorResponse(err.message, StatusCodes.INTERNAL_SERVER));
   }
 };
+
 export const verifyToken = (req, res, next) => {
   try {
     const token = req.cookies?.access_token;
@@ -157,9 +161,16 @@ export const verifyToken = (req, res, next) => {
 export const signOut = async (req, res, next) => {
   try {
     req.user = null;
-    res.clearCookie("access_token").status(StatusCodes.OK).json({
-      message: "Logged out successfully",
-    });
+    res
+      .clearCookie("access_token", {
+        httpOnly: true,
+        secure: isProd,
+        sameSite: isProd ? "none" : "lax",
+      })
+      .status(StatusCodes.OK)
+      .json({
+        message: "Logged out successfully",
+      });
   } catch (err) {
     return next(new ErrorResponse("Sign out failed", StatusCodes.SERVER_ERROR));
   }
@@ -181,8 +192,8 @@ export const googleCallback = async (req, res, next) => {
     res
       .cookie("access_token", token, {
         httpOnly: true,
-        sameSite: "Lax",
-        secure: process.env.NODE_ENV === "production",
+        secure: isProd,
+        sameSite: isProd ? "none" : "lax",
         expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       })
       .redirect(`${process.env.CLIENT_URL}`);
