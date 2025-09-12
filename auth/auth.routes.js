@@ -6,7 +6,8 @@ import {
   signOut,
   googleCallback,
   verifyToken,
-  AdminsignIn
+  AdminsignIn,
+  getStatus
 } from "./auth.controller.js";
 
 const router = express.Router();
@@ -15,7 +16,7 @@ router.post("/signup", signUp);
 router.post("/signin", signIn);
 router.post("/admin/signin", AdminsignIn);
 router.post("/signout", signOut);
-
+router.get("/verify", getStatus);
 router.get("/status", verifyToken, (req, res) => {
   res.status(200).json({
     loggedIn: true,

@@ -15,7 +15,7 @@ const setAuthCookie = (res, token) => {
     httpOnly: true,
     secure: isProd,
     sameSite: isProd ? "none" : "lax",
-    domain: isProd ? process.env.COOKIE_DOMAIN : "localhost",
+    //domain: isProd ? process.env.COOKIE_DOMAIN : "localhost",
     expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
   });
 };
@@ -158,7 +158,39 @@ export const verifyToken = (req, res, next) => {
     );
   }
 };
+export const getStatus = (req, res, next) => {
+  try {
+    const token = req.cookies?.access_token;
 
+    if (!token) {
+      return next(
+        new ErrorResponse("No token provided", StatusCodes.UNAUTHORIZED)
+      );
+    }
+
+    // Verify the token
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      res.status(200).json({
+        loggedIn: true,
+        user: { ...req.user, ...decoded },
+        token: token,
+        message: "User is authenticated",
+      });
+    } catch (jwtError) {
+      return next(
+        new ErrorResponse("Invalid token", StatusCodes.UNAUTHORIZED)
+      );
+    }
+  } catch (error) {
+    return next(
+      new ErrorResponse(
+        "Error retrieving status",
+        StatusCodes.INTERNAL_SERVER_ERROR
+      )
+    );
+  }
+};
 export const signOut = async (req, res, next) => {
   try {
     req.user = null;
