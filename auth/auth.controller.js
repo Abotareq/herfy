@@ -15,6 +15,7 @@ const setAuthCookie = (res, token) => {
     httpOnly: true,
     secure: isProd,
     sameSite: isProd ? "none" : "lax",
+    domain: isProd ? process.env.COOKIE_DOMAIN : "localhost",
     expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
   });
 };
