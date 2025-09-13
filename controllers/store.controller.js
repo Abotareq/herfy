@@ -75,7 +75,7 @@ const getStoresByVendor = asyncWrapper(async (req, res) => {
  */
 const getAllStores = asyncWrapper(async (req, res) => {
   console.log("hi from backend")
-  const result = await storeService.getAllStores(req.query);
+  const result = await storeService.getAllStores(req.query,req.user);
   console.log("results",result)
   res.status(StatusCodes.OK).json({
     status: JSEND_STATUS.SUCCESS,

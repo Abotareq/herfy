@@ -1,6 +1,6 @@
 import Category from "../models/categoryModel.js";
 import Product from "../models/productModel.js";
-import Coupon  from "../models/cuponModel.js";
+import Coupon from "../models/cuponModel.js";
 import Order from "../models/orderModel.js";
 import Store from "../models/storeModel.js";
 import User from "../models/userModel.js";
@@ -44,9 +44,7 @@ const createStore = async (data) => {
     console.log("existingStore", existingStore);
     if (existingStore) {
       console.log("hi from createStore");
-      throw AppErrors.badRequest(
-        "Store with this name already exists."
-      );
+      throw AppErrors.badRequest("Store with this name already exists.");
     }
 
     // ✅ Assign slug to data before creating store
@@ -182,16 +180,19 @@ const createStore = async (data) => {
 //     stores,
 //   };
 // };
-export const getAllStores = async ({
-  page = 1,
-  limit = 10,
-  search,
-  status,
-  sort,
-  city,
-  brand, // ✅ brand name part
-  ...extraFilters
-} = {}) => {
+export const getAllStores = async (
+  {
+    page = 1,
+    limit = 10,
+    search,
+    status,
+    sort,
+    city,
+    brand, // ✅ brand name part
+    ...extraFilters
+  },
+  user
+) => {
   // Ensure numeric values
   page = parseInt(page, 10) || 1;
   limit = parseInt(limit, 10) || 10;
@@ -204,11 +205,17 @@ export const getAllStores = async ({
     ...(brand ? { name: { $regex: brand, $options: "i" } } : {}), // ✅ check if store.name contains brand
     ...extraFilters,
   };
-
+  if (user.role === "ADMIN") {
+    if (status) {
+      query.status = status;
+    }
+  } else {
+    query.status = "approved";
+  }
   // Search (multi-field, including brand inside store name)
   if (search) {
     query.$or = [
-      { name: { $regex: search, $options: "i" } },   // ✅ brand included
+      { name: { $regex: search, $options: "i" } }, // ✅ brand included
       { description: { $regex: search, $options: "i" } },
       { "address.city": { $regex: search, $options: "i" } },
       { "address.street": { $regex: search, $options: "i" } },
@@ -216,23 +223,23 @@ export const getAllStores = async ({
   }
 
   // Sorting
-    let sortOption = { createdAt: -1 }; // default: newest
-    switch (sort) {
-      case "name":
-        sortOption = { name: 1 };
-        break;
-      case "products":
-        sortOption = { productCount: -1 };
-        break;
-      case "orders":
-        sortOption = { ordersCount: -1 };
-        break;
-      case "oldest":
-        sortOption = { createdAt: 1 };
-        break;
-      default:
-        break;
-    }
+  let sortOption = { createdAt: -1 }; // default: newest
+  switch (sort) {
+    case "name":
+      sortOption = { name: 1 };
+      break;
+    case "products":
+      sortOption = { productCount: -1 };
+      break;
+    case "orders":
+      sortOption = { ordersCount: -1 };
+      break;
+    case "oldest":
+      sortOption = { createdAt: 1 };
+      break;
+    default:
+      break;
+  }
 
   // Fetch data
   const [total, stores] = await Promise.all([
@@ -260,10 +267,16 @@ export const getAllStores = async ({
  * @param {string} [params.search] - Optional search term (store name)
  * @param {string} [params.status] - Optional status filter ('pending', 'approved', etc.)
  */
-const getStoresByVen = async ({ ownerId, page = 1, limit = 10, search, status }) => {
+const getStoresByVen = async ({
+  ownerId,
+  page = 1,
+  limit = 10,
+  search,
+  status,
+}) => {
   const query = {
-    owner: ownerId,           // Only this owner's stores
-    isDeleted: false,         // Exclude soft-deleted stores
+    owner: ownerId, // Only this owner's stores
+    isDeleted: false, // Exclude soft-deleted stores
   };
 
   // Optional search by store name
@@ -300,8 +313,10 @@ const getStoresByVen = async ({ ownerId, page = 1, limit = 10, search, status })
  * @throws {AppError} - Throws if store is not found.
  */
 const getStoreById = async (id) => {
-  const store = await Store.findOne({ _id: id, isDeleted: { $ne: true } })
-    .lean(); // optional: for performance
+  const store = await Store.findOne({
+    _id: id,
+    isDeleted: { $ne: true },
+  }).lean(); // optional: for performance
 
   if (!store) {
     throw AppErrors.notFound("Store not found or has been deleted");
@@ -326,7 +341,7 @@ export const updateStore = async (id, data) => {
     // Find store by ID within transaction
     const store = await Store.findById(id).session(session);
     if (!store) {
-      throw AppErrors.notFound('Store not found');
+      throw AppErrors.notFound("Store not found");
     }
 
     // If name is being updated, regenerate slug and check uniqueness per owner
@@ -341,7 +356,7 @@ export const updateStore = async (id, data) => {
 
       if (existingStore) {
         throw AppErrors.badRequest(
-          'Another store with this name already exists for this owner.'
+          "Another store with this name already exists for this owner."
         );
       }
 
@@ -360,10 +375,10 @@ export const updateStore = async (id, data) => {
         !Array.isArray(data.location.coordinates) ||
         data.location.coordinates.length !== 2
       ) {
-        throw AppErrors.badRequest('Invalid location coordinates');
+        throw AppErrors.badRequest("Invalid location coordinates");
       }
       store.location = {
-        type: 'Point',
+        type: "Point",
         coordinates: data.location.coordinates,
       };
     }
@@ -474,5 +489,5 @@ export default {
   getStoreById,
   deleteStore,
   updateStore,
-  getStoresByVen
+  getStoresByVen,
 };
