@@ -17,7 +17,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 import authRoutes from "./auth/auth.routes.js";
-import { connecToDb, closeDbConnection } from "./utils/dbConnecion.js";
+//import { connecToDb, closeDbConnection } from "./utils/dbConnecion.js";
 import errorHandler from "./middlewares/error-handler.js";
 
 import productRoute from "./routes/product.route.js";
