@@ -82,6 +82,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       unique: true,
       trim: true,
+      sparse: true,
       required: function () {
         return !this.googleId;
       },
@@ -114,7 +115,7 @@ const userSchema = new mongoose.Schema(
         return ret;
       },
     },
-  }
+  },
 );
 // userSchema.index({ email: 1 }, { unique: true });
 // userSchema.index({ googleId: 1 }, { unique: true, sparse: true });
@@ -139,7 +140,7 @@ userSchema.post("save", async function (doc) {
     }, Email: ${doc.email}, Phone: ${doc.phone}, Role: ${
       doc.role
     }, Addresses: ${JSON.stringify(
-      doc.addresses
+      doc.addresses,
     )}, Wishlist: ${doc.wishlist.join(", ")}`;
     await addDocument(`${doc._id}`, content, { type: "user", userId: doc._id });
     console.log(`RAG embeddings updated for user ${doc._id}`);
@@ -157,7 +158,7 @@ userSchema.post("findOneAndUpdate", async function (doc) {
     }, Email: ${doc.email}, Phone: ${doc.phone}, Role: ${
       doc.role
     }, Addresses: ${JSON.stringify(
-      doc.addresses
+      doc.addresses,
     )}, Wishlist: ${doc.wishlist.join(", ")}`;
     await addDocument(`${doc._id}`, content, { type: "user", userId: doc._id });
     console.log(`RAG embeddings updated for user ${doc._id} (update)`);
