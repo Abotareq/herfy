@@ -202,7 +202,7 @@ app.post("/api/rag", ragHandler);
 app.use(errorHandler);
 
 //*------------------------------------db + server start------------------------------------*//
-connecToDb();
+await connecToDb();
 
 //*----------------------------------- Ai Rag sys init training if you have any db ---------------------------*//
 // (async () => {
@@ -323,15 +323,17 @@ connecToDb();
 // })();
 
 //*------------------------------------host server ------------------------------------*//   osama saad
-app.listen(process.env.PORT || 5000, () => {
+/* app.listen(process.env.PORT || 5000, () => {
   console.log(`Server running on port ${process.env.PORT || 5000}`);
-});
+}); */
 //*------------------------------------graceful shutdown------------------------------------*/
-process.on("SIGINT", async () => {
+/* process.on("SIGINT", async () => {
   await closeDbConnection();
   console.log("🔌 Server shutdown gracefully");
   process.exit(0);
 });
+ */
+export default app;
 
 // test refaat
 //test osama and refaat
