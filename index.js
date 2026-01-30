@@ -203,23 +203,7 @@ app.use(errorHandler);
 
 //*------------------------------------db + server start------------------------------------*//
 //connecToDb();
-let isConnected = false;
 
-export default async function handler(req, res) {
-  // Connect to DB only once per cold start
-  if (!isConnected) {
-    try {
-      await connecToDb();
-      isConnected = true;
-    } catch (error) {
-      console.error('DB connection failed:', error);
-      return res.status(500).json({ error: 'Database connection failed' });
-    }
-  }
-
-  // Pass request to Express app
-  return app(req, res);
-}
 //*----------------------------------- Ai Rag sys init training if you have any db ---------------------------*//
 // (async () => {
 //   try {
