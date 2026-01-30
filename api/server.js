@@ -1,5 +1,5 @@
-import app from './index.js';
-import { connecToDb } from './utils/dbConnecion.js';
+import app from '../index.js';
+import { connecToDb } from '../utils/dbConnecion.js';
 
 let isConnected = false;
 
