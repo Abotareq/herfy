@@ -191,7 +191,7 @@ export const getAllStores = async (
     brand, // ✅ brand name part
     ...extraFilters
   },
-  user
+  
 ) => {
   // Ensure numeric values
   page = parseInt(page, 10) || 1;
