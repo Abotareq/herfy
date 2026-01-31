@@ -5,7 +5,7 @@ import StatusCodes from "../utils/status.codes.js";
 import ErrorResponse from "../utils/error-model.js";
 import jwt from "jsonwebtoken";
 
-const isProd = process.env.NODE_ENV === "production";
+const isProd = process.env.NODE_ENV ==="development" ;
 
 /**
  * Helper to set cookie
