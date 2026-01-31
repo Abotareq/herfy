@@ -87,7 +87,7 @@ const createStore = async (data) => {
           categorieCount: 0,
         },
       ],
-      { session }
+      { session },
     );
 
     const createdStore = store[0];
@@ -181,17 +181,8 @@ const createStore = async (data) => {
 //   };
 // };
 export const getAllStores = async (
-  {
-    page = 1,
-    limit = 10,
-    search,
-    status,
-    sort,
-    city,
-    brand, // ✅ brand name part
-    ...extraFilters
-  },
-  
+  { page = 1, limit = 10, search, status, sort, city, brand, ...extraFilters },
+  user, // Can be undefined for public access
 ) => {
   // Ensure numeric values
   page = parseInt(page, 10) || 1;
@@ -202,20 +193,24 @@ export const getAllStores = async (
     isDeleted: { $ne: true },
     ...(status ? { status } : {}),
     ...(city ? { "address.city": city } : {}),
-    ...(brand ? { name: { $regex: brand, $options: "i" } } : {}), // ✅ check if store.name contains brand
+    ...(brand ? { name: { $regex: brand, $options: "i" } } : {}),
     ...extraFilters,
   };
-  if (user.role === "ADMIN") {
+
+  // ✅ FIX: Check if user exists before accessing role
+  if (user && user.role === "ADMIN") {
     if (status) {
       query.status = status;
     }
   } else {
+    // Non-authenticated users or non-admins only see approved stores
     query.status = "approved";
   }
+
   // Search (multi-field, including brand inside store name)
   if (search) {
     query.$or = [
-      { name: { $regex: search, $options: "i" } }, // ✅ brand included
+      { name: { $regex: search, $options: "i" } },
       { description: { $regex: search, $options: "i" } },
       { "address.city": { $regex: search, $options: "i" } },
       { "address.street": { $regex: search, $options: "i" } },
@@ -223,7 +218,7 @@ export const getAllStores = async (
   }
 
   // Sorting
-  let sortOption = { createdAt: -1 }; // default: newest
+  let sortOption = { createdAt: -1 };
   switch (sort) {
     case "name":
       sortOption = { name: 1 };
@@ -356,7 +351,7 @@ export const updateStore = async (id, data) => {
 
       if (existingStore) {
         throw AppErrors.badRequest(
-          "Another store with this name already exists for this owner."
+          "Another store with this name already exists for this owner.",
         );
       }
 
@@ -442,7 +437,7 @@ const deleteStore = async (storeId) => {
     await Product.updateMany(
       { store: storeId },
       { $set: { isDeleted: true } },
-      { session }
+      { session },
     );
 
     // Remove store reference from user
@@ -456,21 +451,21 @@ const deleteStore = async (storeId) => {
     await Coupon.updateMany(
       { store: storeId },
       { $set: { isDeleted: true } },
-      { session }
+      { session },
     );
 
     // // Optionally remove store reference from categories
     await Category.updateMany(
       { stores: storeId },
       { $inc: { storesCount: -1 } },
-      { session }
+      { session },
     );
 
     // // Optionally mark orders as storeDeleted or handle per business logic
     await Order.updateMany(
       { store: storeId },
       { $set: { storeDeleted: true } },
-      { session }
+      { session },
     );
 
     await session.commitTransaction();
