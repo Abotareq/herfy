@@ -177,4 +177,8 @@ userSchema.post("remove", async function (doc) {
   }
 });
 const User = mongoose.model("User", userSchema);
+User.collection.dropIndex("phone_1").catch(() => {
+  // Index might not exist, that's okay
+});
+
 export default User;
