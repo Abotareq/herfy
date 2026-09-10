@@ -230,6 +230,12 @@ app.get("/", async (req, res) => {
         name: conn.name || null,
         host: conn.host || null,
       },
+      // presence only -- never echo the key or secret
+      cloudinary: {
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME || null,
+        api_key: Boolean(process.env.CLOUDINARY_API_KEY),
+        api_secret: Boolean(process.env.CLOUDINARY_API_SECRET),
+      },
     });
   } catch (err) {
     res.status(503).json({

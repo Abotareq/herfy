@@ -1,3 +1,4 @@
+import { v2 as cloudinary } from "cloudinary";
 import Category from "../models/categoryModel.js";
 import Product from "../models/productModel.js";
 import mongoose from "mongoose";
