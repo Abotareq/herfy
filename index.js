@@ -57,21 +57,36 @@ app.set("trust proxy", 1);
 //*------------------------------------middlewares------------------------------------*//
 app.use(helmet());
 // Allow requests if origin is in the list or if request has no origin (like Postman)
+const stripSlash = (url) => (url || "").replace(/\/+$/, "");
 const allowedOrigins = [
   "http://localhost:4200",
   "http://localhost:3001",
   "http://localhost:3000",
   process.env.CLIENT_URL, // from .env -> production frontend URL
   process.env.ADMIN_URL
+].filter(Boolean).map(stripSlash);
+
+// Vercel gives preview deployments a fresh hostname on every push, so they can
+// never be pinned by name. These match our own team's deployments only.
+const allowedOriginPatterns = [
+  /^https:\/\/[a-z0-9-]+-abotareqs-projects\.vercel\.app$/,
 ];
+
+const isAllowedOrigin = (origin) => {
+  const clean = stripSlash(origin);
+  return allowedOrigins.includes(clean) ||
+    allowedOriginPatterns.some((re) => re.test(clean));
+};
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin || isAllowedOrigin(origin)) {
         callback(null, true);
       } else {
-        callback(new Error("Not allowed by CORS"));
+        // plain deny, not an error -- throwing here surfaced as a 500 and made
+        // a rejected origin look like the API was down
+        callback(null, false);
       }
     },
     credentials: true, // allow cookies
