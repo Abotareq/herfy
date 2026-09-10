@@ -323,16 +323,18 @@ app.use(errorHandler);
 // })();
 
 //*------------------------------------host server ------------------------------------*//   osama saad
+// Vercel serves this through api/server.js and owns the socket itself, so
+// nothing here may bind a port or install shutdown hooks.
 /* app.listen(process.env.PORT || 5000, () => {
   console.log(`Server running on port ${process.env.PORT || 5000}`);
 }); */
-//*------------------------------------graceful shutdown------------------------------------*/
+//*------------------------------------graceful shutdown------------------------------------*//
 /* process.on("SIGINT", async () => {
   await closeDbConnection();
   console.log("🔌 Server shutdown gracefully");
   process.exit(0);
-});
- */
+}); */
+
 export default app;
 
 // test refaat

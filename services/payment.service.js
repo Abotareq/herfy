@@ -13,7 +13,18 @@ import StatusCodes from "../utils/status.codes.js";
 import sendReminderEmail from "../utils/email.notifications.js";
 dotenv.config();
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+// built on first use: constructing Stripe without a key throws, and at module
+// scope that would take down every route in the app, not just the payment ones
+let stripeClient = null;
+const getStripe = () => {
+  if (!stripeClient) {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      throw new appErrors("Stripe is not configured (STRIPE_SECRET_KEY is missing)", 500, JSEND_STATUS.ERROR);
+    }
+    stripeClient = new Stripe(process.env.STRIPE_SECRET_KEY);
+  }
+  return stripeClient;
+};
 
 /**
  * Create a Stripe Checkout Session
@@ -67,7 +78,7 @@ export const createStripeCheckoutSession = async (order) => {
       },
     };
 
-    return await stripe.checkout.sessions.create(sessionConfig);
+    return await getStripe().checkout.sessions.create(sessionConfig);
   } catch (error) {
     console.error('Error creating Stripe checkout session:', error);
     throw new Error(`Failed to create checkout session: ${error.message}`);

@@ -36,6 +36,9 @@ export const connecToDb = async () => {
   if (!cached.promise) {
     cached.promise = mongoose.connect(process.env.DB_HOST, {
       bufferCommands: false,
+      // shorter than the serverless function timeout, so a bad URI or a blocked
+      // IP surfaces as a real error instead of a bare gateway timeout
+      serverSelectionTimeoutMS: 8000,
     });
   }
 
