@@ -59,16 +59,9 @@
 // export {uploadCloudinary};
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
-import CloudinaryStoragePkg from "multer-storage-cloudinary";
 import dotenv from "dotenv";
 
 dotenv.config();
-
-// Extract CloudinaryStorage - handle both export patterns
-const CloudinaryStorage =
-  CloudinaryStoragePkg.CloudinaryStorage ||
-  CloudinaryStoragePkg.default ||
-  CloudinaryStoragePkg;
 
 /**
  * Configure Cloudinary with credentials from environment variables.
@@ -79,20 +72,52 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+const UPLOAD_OPTIONS = {
+  folder: "herfy",
+  allowed_formats: ["jpg", "jpeg", "png", "gif"],
+  transformation: [{ width: 800, height: 800, crop: "limit" }],
+};
+
 /**
- * CloudinaryStorage configuration for multer.
- * - Uploads images to the "herfy" folder in Cloudinary.
- * - Accepts only jpg, jpeg, png, gif formats.
- * - Resizes images to a max width/height of 800px while preserving aspect ratio.
+ * Multer storage engine that streams straight to Cloudinary.
+ *
+ * Replaces multer-storage-cloudinary, which was pinned at 2.x: that release
+ * targets the cloudinary v1 SDK, exports nothing this file could import, and
+ * took its options flat rather than nested under `params`. The engine it
+ * produced never invoked its own callback, so any request carrying an image
+ * hung until the platform killed it. Upgrading is not an option either --
+ * 4.x declares a peer of cloudinary@^1 and this project is on v2.
+ *
+ * Sets `path` to the secure URL and `filename` to the public id, which is what
+ * the controllers and the product service read off the uploaded file.
  */
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: "herfy",
-    allowed_formats: ["jpg", "jpeg", "png", "gif"],
-    transformation: [{ width: 800, height: 800, crop: "limit" }],
+const storage = {
+  _handleFile(req, file, cb) {
+    const upload = cloudinary.uploader.upload_stream(
+      UPLOAD_OPTIONS,
+      (error, result) => {
+        if (error) return cb(error);
+        cb(null, {
+          path: result.secure_url,
+          filename: result.public_id,
+          size: result.bytes,
+          mimetype: file.mimetype,
+        });
+      },
+    );
+    file.stream.on("error", cb);
+    file.stream.pipe(upload);
   },
-});
+
+  // multer calls this to undo an upload when a later file in the request fails
+  _removeFile(req, file, cb) {
+    if (!file.filename) return cb(null);
+    cloudinary.uploader
+      .destroy(file.filename)
+      .then(() => cb(null))
+      .catch(cb);
+  },
+};
 
 /**
  * Multer file filter middleware.
