@@ -4,6 +4,7 @@ dotenv.config();
 //2na 3amel el 7agat de bla4 7naka w 7d y2ol ai comments w kda
 //*------------------------------------importing modules------------------------------------*//
 import express from "express";
+import mongoose from "mongoose";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
@@ -197,6 +198,23 @@ app.use("/api/product", productRoute);
 
 // rag middleware
 app.post("/api/rag", ragHandler);
+
+//*------------------------------------health check------------------------------------*//
+// hitting / used to return "Cannot GET /", which looks like a dead deploy.
+// this says whether the app is up and which database it actually reached.
+const DB_STATES = ["disconnected", "connected", "connecting", "disconnecting"];
+app.get("/", (req, res) => {
+  const conn = mongoose.connection;
+  res.json({
+    status: "success",
+    service: "herfy-backend",
+    db: {
+      state: DB_STATES[conn.readyState] || "unknown",
+      name: conn.name || null,
+      host: conn.host || null,
+    },
+  });
+});
 
 //*------------------------------------error handler (last)------------------------------------*//
 app.use(errorHandler);
