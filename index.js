@@ -4,7 +4,6 @@ dotenv.config();
 //2na 3amel el 7agat de bla4 7naka w 7d y2ol ai comments w kda
 //*------------------------------------importing modules------------------------------------*//
 import express from "express";
-import mongoose from "mongoose";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
@@ -19,6 +18,7 @@ import { fileURLToPath } from "url";
 
 import authRoutes from "./auth/auth.routes.js";
 //import { connecToDb, closeDbConnection } from "./utils/dbConnecion.js";
+import { connecToDb } from "./utils/dbConnecion.js";
 import errorHandler from "./middlewares/error-handler.js";
 
 import productRoute from "./routes/product.route.js";
@@ -203,17 +203,26 @@ app.post("/api/rag", ragHandler);
 // hitting / used to return "Cannot GET /", which looks like a dead deploy.
 // this says whether the app is up and which database it actually reached.
 const DB_STATES = ["disconnected", "connected", "connecting", "disconnecting"];
-app.get("/", (req, res) => {
-  const conn = mongoose.connection;
-  res.json({
-    status: "success",
-    service: "herfy-backend",
-    db: {
-      state: DB_STATES[conn.readyState] || "unknown",
-      name: conn.name || null,
-      host: conn.host || null,
-    },
-  });
+app.get("/", async (req, res) => {
+  try {
+    // report the connection connecToDb actually opened, not mongoose's default
+    const conn = (await connecToDb()).connection;
+    res.json({
+      status: "success",
+      service: "herfy-backend",
+      db: {
+        state: DB_STATES[conn.readyState] || "unknown",
+        name: conn.name || null,
+        host: conn.host || null,
+      },
+    });
+  } catch (err) {
+    res.status(503).json({
+      status: "error",
+      service: "herfy-backend",
+      db: { state: "unreachable", message: err.message },
+    });
+  }
 });
 
 //*------------------------------------error handler (last)------------------------------------*//
